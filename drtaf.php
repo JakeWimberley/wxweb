@@ -37,7 +37,7 @@ function ShowGroup(n) {
   </script>
 </head>
 <body>
-  <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">D<span style="font-family: serif; font-size: 28px;">&#8478;</span>. TAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
+  <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">D<span style="font-family: serif; font-size: 28px;">&#8478;</span>. GoodTAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
 <?php
   $tafSearchStartTime = preg_replace('/\+00:00/','Z',date('c',strtotime('31 hours ago')));
   $tafSearchEndTime = preg_replace('/\+00:00/','Z',date('c',strtotime('25 hours ago')));
@@ -321,11 +321,19 @@ function SplitTaf($rawStr) {
 function sortPeriods($a,$b) {
       $beginA = date_create($a->fcst_time_from);
       $beginB = date_create($b->fcst_time_from);
+      if (property_exists($a,'change_indicator'))
+        $groupTypeA = (string)$a->change_indicator;
+      else
+        $groupTypeA = '';
+      if (property_exists($b,'change_indicator'))
+        $groupTypeB = (string)$b->change_indicator;
+      else
+        $groupTypeB = '';
       if ($beginA < $beginB) return -1;
       else if ($beginA > $beginB) return 1;
       // if start times are equal, the FM group is first
-      else if ((string)$a->change_indicator === 'FM') return -1;
-      else if ((string)$b->change_indicator === 'FM') return 1;
+      else if ($groupTypeA === 'FM' || empty($groupTypeA)) return -1;
+      else if ($groupTypeB === 'FM' || empty($groupTypeB)) return 1;
       else return 0; // should never get here
 }
 
