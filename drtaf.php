@@ -92,17 +92,15 @@ function ShowGroup(n) {
       // print TAFs and obs
       //// TAF DISPLAY SECTION
       echo "<div class=\"left\">\n";
-      echo "<table>\n";
-      echo "  <tr>\n";
-      echo "    <td class=\"topRow\" colspan=\"3\" onclick=\"javascript:ShowGroup(-1)\">TAF (Click period to view only those obs; click here to show all)</td>\n";
-      echo "  </tr>\n";
+      echo "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup(-1)\">TAF (click group to show only obs from that period, click here to show all)</p>\n";
+      echo "<table class=\"left\">\n";
       list($fm,$cond) = SplitTaf($taf);
       list($fmTime,$condTime) = TafTimes($fm,$cond);
       // groupNum is handled separately since the block arrays make
       // no distinction between FM and conditional groups
       for ($i = 0, $groupNum = 0; $i < count($fm); $i++, $groupNum++) {
         list($cat,$catName) = $categories[$groupNum];
-        echo "  <tr class=\"odd\" onclick=\"javascript:ShowGroup($groupNum)\">\n";
+        echo "  <tr onclick=\"javascript:ShowGroup($groupNum)\">\n";
         if ($bTestMode) {
           $timeLimits = $fmTime[$i][0][0] . $fmTime[$i][0][1] . '/' .
                         $fmTime[$i][1][0] . $fmTime[$i][1][1];
@@ -118,7 +116,7 @@ function ShowGroup(n) {
         if (! empty($cond[$i])) {
           $groupNum++;
           list($cat,$catName) = $categories[$groupNum];
-          echo "  <tr class=\"odd\" onclick=\"javascript:ShowGroup($groupNum)\">\n";
+          echo "  <tr onclick=\"javascript:ShowGroup($groupNum)\">\n";
           if ($bTestMode) {
             $timeLimits = $condTime[$i][0][0] . $condTime[$i][0][1] . '/' .
                           $condTime[$i][1][0] . $condTime[$i][1][1];
@@ -137,17 +135,13 @@ function ShowGroup(n) {
       echo "<div class=\"right\">\n";
       //// METAR DISPLAY SECTION
       $obGroup = 0;
+      echo "<p id=\"metarTitle\">Observations during the TAF valid period</p>\n";
       foreach ($obsBinnedByPeriod as $periodObs) {
-        echo "<table class=\"metar\" id=\"metarGroup$obGroup\">\n";
-        if ($obGroup == 0) {
-          echo "  <tr>\n";
-          echo "    <td class=\"topRow\" colspan=\"3\">Observations during the TAF valid period\n";
-          echo "  </tr>\n";
-        }
+        echo "<table class=\"metar right\" id=\"metarGroup$obGroup\">\n";
         foreach ($periodObs as $metar) {
           $metar = str_replace("\n",' ',$metar);
           list($cat,$catName) = CategoryFromCoded($metar);
-          echo "  <tr class=\"odd\">\n";
+          echo "  <tr>\n";
           echo "    <td>$obGroup</td>\n";
           echo "    <td class=\"catname$cat\">$catName</td>\n";
           echo "    <td class=\"tafmetar$cat\">$metar</td>\n";

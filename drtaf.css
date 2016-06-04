@@ -1,99 +1,11 @@
-.hdftcolor {
-  background-color: white;
-  color: #0066CC;
-}
-a.ftlink:link { /* footer link */
-  color: #0066CC;
-}
-a.ftlink:active {
-  color: #0066CC;
-}
-a.ftlink:visited {
-  color: #0066CC;
-}
-a.ftlink:hover {
-  color: #FFAA00;
-}
 body {
  position: absolute;
  background-color: DarkBlue;
  color: #FFFFFF; 
 }
-h1 {
- font-size: 32pt;
- font-style: normal; 
- font-family: sans-serif; 
- text-align: left;
-}
-h2 {
- font-size: 18pt;
- font-style: normal;
- font-family: sans-serif;
- text-align: left;
- padding-top: 24pt;
-}
-h3 {
- font-size: 14pt;
- font-style: normal;
- font-family: sans-serif;
- text-align: left;
- padding-top: 18pt;
-}
-h4 {
- font-size: 14pt;
- font-style: normal;
- font-family: sans-serif;
- text-align: left;
- padding-left: 18pt;
-}
-p.large {
- text-align: left;
- font: 14pt sans-serif;
- font-style: italic;
- font-weight: bold;
-}
-p.pad {
- text-align: left;
- font: 10pt sans-serif;
- font-weight: bold;
- padding-top: 32pt;
-}
 p {
  text-align: left;
  font: 16px sans-serif;
-}
-ul.indent {
- text-align: left;
- font: 10pt sans-serif;
- font-weight: bold;
- list-style: none inside;
- padding-left: 30pt;
-}
-ul.pagelist {
- text-align: left;
- font: 24px sans-serif;
- font-weight: bold;
- list-style: none inside;
- padding-left: 20px;
-}
-li.pagedesc {
- font: 16px sans-serif;
- font-weight: normal;
-/* padding-left: 20px; */
- padding-top: 4px;
- padding-bottom: 12px;
-}
-ul#levels {
- text-align: left;
- font: 12pt sans-serif;
- list-style: none inside;
- padding-left: 0px;
-}
-ul {
- text-align: left;
- font: 10pt sans-serif;
- font-weight: bold;
- list-style: none inside;
 }
 img {
  border: 0px;
@@ -102,56 +14,20 @@ a {
  color: yellow;
  text-decoration: none;
 }
-table.full {
-  width: 100%;
+table.left {
+  width: 500px;
+}
+table.right {
+  width: 700px;
 }
 table {
   border: 0px;
   font-size: 10pt;
   font-family: sans-serif;
 }
-th {
-  text-align: left;
-  padding: 5px;
-  font-weight: bold;
-  background-color: white;
-  color: black;
-}
-tr.even {
-  background-color: #dddddd;
-  color: black;
-}
-tr.odd {
+tr {
   background-color: #bbbbbb;
   color: black;
-}
-tr.head {
-  background-color: white;
-  color: black;
-}
-td.obsc {
-  background-color: #996600;
-  color: white;
-}
-td.ts {
-  background-color: red;
-  color: white;
-}
-td.ra {
-  background-color: green;
-  color: white;
-}
-td.fz {
-  background-color: #ff9900;
-  color: white;
-}
-td.sn {
-  background-color: #cc55ff;
-  color: white;
-}
-td.fc {
-  background-color: black;
-  color: white;
 }
 td.vlifr {
   background-color: #ff00ff;
@@ -189,29 +65,13 @@ td.vfr3 {
   background-color: #084200;
   color: white;
 }
-td.metar {
-  font-family: monospace;
-  width: 80%;
-}
 td.tafmetar {
   font-family: monospace;
 }
 td.catname {
   text-align: center;
   font-weight: bold;
-  max-width: 8%;
-}
-td.prompt {
-  width: 60%;
-}
-td.answer {
-  width: 40%;
-}
-td.answer1 {
-  opacity: 0.0;
-}
-td.answer1:hover {
-  opacity: 1.0;
+  width: 50px;
 }
 td {
   padding: 5px;
@@ -229,8 +89,11 @@ div.right {
   left: 510px;
   width: 700px;
 }
-td.topRow {
+p#metarTitle, p#tafTitle {
   text-align: center;
   background-color: #bbbbbb;
   color: black;
+  font-size: 10pt;
+  margin-bottom: 5px;
+  border: 0px;
 }
