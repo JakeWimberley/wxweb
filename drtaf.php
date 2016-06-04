@@ -12,7 +12,7 @@
   }
   $disclaimer = "TAF and METAR data courtesy <a href=\"http://aviationweather.gov/adds/\">Aviation Weather Center</a>, <a href=\"http://weather.gov\">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.";
   $self = 'taf.php'; //TODO shouldn't need this
-  $catNames = array('vlifr','lifr','ifr1','ifr2','mvfr1','mvfr2','vfr1','vfr2','vfr3');
+  $catClasses = array('vlifr','lifr','ifr1','ifr2','mvfr1','mvfr2','vfr1','vfr2','vfr3');
   $catNames2 = array('VLIFR','LIFR','IFR','IFR','MVFR','MVFR','VFR','VFR','VFR');
   $catCigMin = array(-1,200,500,500,1000,2000,3000,6500,12000);
   $catVisMin = array(-1,0.5,1.0,2.0,3.0,3.0,6.0,7.0,7.0);
@@ -21,7 +21,7 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Dr. Archibald TAF, M.D.</title>
+	<title>Dr. Archibald Goodtaf, M.D.</title>
 	<link href="drtaf.css" rel="stylesheet">
   <script language="javascript">
 function ShowGroup(n) {
@@ -130,6 +130,10 @@ function ShowGroup(n) {
         }
       }
       echo "</table>\n";
+      PrintLegend();
+?>
+      <p>Still feeling lucky? Roll again.</p>
+<?php
       PrintForm();
       echo "</div>\n";
       echo "<div class=\"right\">\n";
@@ -154,7 +158,7 @@ function ShowGroup(n) {
     }
   } else { // ! isset sid
 ?>
-  <p>This is a TAF verification tool. Enter a TAF site, and it will be displayed along with the obs from its valid period.</p>
+  <p>This is a TAF verification tool. Enter a TAF site, and a forecast for that site will be displayed along with the obs from its valid period.</p>
 <?php
     PrintForm();
   }
@@ -203,8 +207,8 @@ function TafTimes($fms,$conds) {
 
 // Get category of a TAF group or METAR based on the coded wx data therein.
 function CategoryFromCoded($group) {
-  global $catNames, $catNames2, $catCigMin, $catVisMin, $bTestMode;
-  $catCig = count($catNames)-1; // default to VFR if not defined in group
+  global $catClasses, $catNames2, $catCigMin, $catVisMin, $bTestMode;
+  $catCig = count($catClasses)-1; // default to VFR if not defined in group
   if (preg_match('/(?:BKN|OVC|VV)(\d{3})/',$group,$_cig)) {
     $_cig[1] = ltrim($_cig[1],'0');
     for ($i = 1; $i < count($catCigMin); $i++) {
@@ -217,7 +221,7 @@ function CategoryFromCoded($group) {
     $_cig[1] = -1;
   }
   $vis = 99; // default to VFR if not defined in group or is P6SM
-  $catVis = count($catNames)-1;
+  $catVis = count($catClasses)-1;
   $vmatch = preg_match('!([MP]?(?:\d{1,2}|(?:\d )?\d{1,2}/\d{1,2}))SM!',$group,$_vis);
   if ($vmatch > 0) {
     if ($_vis[1] == 'M1/4') {
@@ -238,15 +242,15 @@ function CategoryFromCoded($group) {
     }
   }
   if ($bTestMode)
-  return array(' '.$catNames[min($catCig,$catVis)],
+  return array(' '.$catClasses[min($catCig,$catVis)],
                'cig: '.$catNames2[$catCig]." ($_cig[1]00 ft) vis: ".$catNames2[$catVis]." ($vis mi) ---> ".$catNames2[min($catCig,$catVis)]);
-  else return array(' '.$catNames[min($catCig,$catVis)],$catNames2[min($catCig,$catVis)]);
+  else return array(' '.$catClasses[min($catCig,$catVis)],$catNames2[min($catCig,$catVis)]);
 }
 
 // Get category of a TAF period based on the met data in XML fields.
 function CategoryOfGroup($xmlObj) {
-  global $catNames, $catNames2, $catCigMin, $catVisMin, $bTestMode;
-  $catCig = count($catNames)-1; // default to VFR if not defined in group
+  global $catClasses, $catNames2, $catCigMin, $catVisMin, $bTestMode;
+  $catCig = count($catClasses)-1; // default to VFR if not defined in group
   // Find the cig in this group.
   $lowestCig = 99999;
   $cloudBaseHeight = 99999;
@@ -275,9 +279,9 @@ function CategoryOfGroup($xmlObj) {
     }
   }
   if ($bTestMode)
-  return array(' '.$catNames[min($catCig,$catVis)],
+  return array(' '.$catClasses[min($catCig,$catVis)],
                'cig: '.$catNames2[$catCig]." ($cloudBaseHeight ft) vis: ".$catNames2[$catVis]." ($vis mi) ---> ".$catNames2[min($catCig,$catVis)]);
-  else return array(' '.$catNames[min($catCig,$catVis)],$catNames2[min($catCig,$catVis)]);
+  else return array(' '.$catClasses[min($catCig,$catVis)],$catNames2[min($catCig,$catVis)]);
 }
 
 // Get arrays of FM and conditional groups based on a TAF string.
@@ -346,5 +350,38 @@ function PrintForm() {
   </form>
 <?php
   echo "<p class=\"disclaimer\">$disclaimer</p>\n";
+}
+
+function PrintLegend() {
+  global $catClasses, $catNames2, $catCigMin, $catVisMin;
+  // reverse the arrays as we have to start from the front,
+  // and we want the front to be the VFR end
+  $classes = array_reverse($catClasses);
+  $names = array_reverse($catNames2);
+  $cigs = array_reverse($catCigMin);
+  $vsbys = array_reverse($catVisMin);
+?>
+  <table class="legend">
+    <tr>
+      <td class="legend" colspan="2">Category Minima</td>
+    </tr>
+<?php
+  for ($z = 0; $z < count($names); $z++) {
+    $cat = ' '.$classes[$z];
+    $opr = '> ';
+    if ($z == count($names)-1) {
+      $cigs[$z] = $cigs[$z-1];
+      $vsbys[$z] = $vsbys[$z-1];
+      $opr = '< ';
+    }
+    else $opr = '';
+    echo "    <tr>\n";
+    echo "      <td class=\"legend catname$cat\">".$names[$z]."</td>\n";
+    echo "      <td class=\"legend\">".$opr.$cigs[$z].' ft, '.$opr.$vsbys[$z]."SM</td>\n";
+    echo "    </tr>\n";
+  }
+?>
+  </table>
+    <?php
 }
 ?>

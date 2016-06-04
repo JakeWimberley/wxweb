@@ -20,9 +20,13 @@ table.left {
 table.right {
   width: 700px;
 }
+table.legend {
+  margin-top: 16px;
+  font-size: 10px;
+}
 table {
   border: 0px;
-  font-size: 10pt;
+  font-size: 13px;
   font-family: sans-serif;
 }
 tr {
@@ -62,8 +66,8 @@ td.vfr2 {
   color: white;
 }
 td.vfr3 {
-  background-color: #084200;
-  color: white;
+  background-color: #9F9;
+  color: black;
 }
 td.tafmetar {
   font-family: monospace;
@@ -72,6 +76,10 @@ td.catname {
   text-align: center;
   font-weight: bold;
   width: 50px;
+}
+td.legend {
+  padding: 2px;
+  text-align: center;
 }
 td {
   padding: 5px;
@@ -93,7 +101,7 @@ p#metarTitle, p#tafTitle {
   text-align: center;
   background-color: #bbbbbb;
   color: black;
-  font-size: 10pt;
+  font-size: 13px;
   margin-bottom: 5px;
   border: 0px;
 }
