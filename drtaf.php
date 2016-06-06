@@ -12,10 +12,42 @@
   }
   $disclaimer = "TAF and METAR data courtesy <a href=\"http://aviationweather.gov/adds/\">Aviation Weather Center</a>, <a href=\"http://weather.gov\">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.";
   $self = 'taf.php'; //TODO shouldn't need this
-  $catClasses = array('vlifr','lifr','ifr1','ifr2','mvfr1','mvfr2','vfr1','vfr2','vfr3');
-  $catNames2 = array('VLIFR','LIFR','IFR','IFR','MVFR','MVFR','VFR','VFR','VFR');
-  $catCigMin = array(-1,200,500,500,1000,2000,3000,6500,12000);
-  $catVisMin = array(-1,0.5,1.0,2.0,3.0,3.0,6.0,7.0,7.0);
+  $rulesets = array(
+      'std' => array(
+        'name' => 'Flight Categories (Standard US)',
+        'catNames' => array('VLIFR','LIFR','IFR','IFR','MVFR','VFR'),
+        'classNames' => array('vlifr','ifr1','ifr2','ifr2','mvfr2','vfr3'),
+        'cigMins' => array(-1,200,500,500,1000,3100),
+        'visMins' => array(-1,0.5,1.0,2.0,3.0,6.0),
+      ),
+      'dlac' => array(
+        'name' => 'Flight Categories (DLAC)',
+        'catNames' => array('VLIFR','LIFR','IFR','IFR','MVFR','MVFR','VFR','VFR','VFR'),
+        'classNames' => array('vlifr','lifr','ifr1','ifr2','mvfr1','mvfr2','vfr1','vfr2','vfr3'),
+        'cigMins' => array(-1,200,500,500,1000,2000,3100,6500,12000),
+        'visMins' => array(-1,0.5,1.0,2.0,3.0,3.0,6.0,7.0,7.0),
+      ),
+      'impact' => array(
+        'name' => 'Impacts',
+        'catNames' => array('No Ops','Unavbl as Alt','Unavbl as Alt (Non-Prec Apch)','Alt Req\'d','Low AAR','No Impact'),
+        'classNames' => array('vlifr','ifr1','ifr2','mvfr1','vfr1','vfr3'),
+        'cigMins' => array(-1,200,600,800,2000,6500),
+        'visMins' => array(-1,0.5,2.0,2.0,3.0,6.0),
+      ),
+  );
+  $defaultRules = 'std';
+  if (isset($_GET['rules'])) {
+    $r = $_GET['rules'];
+    $catClasses = $rulesets[$r]['classNames'];
+    $catNames2 = $rulesets[$r]['catNames'];
+    $catCigMin = $rulesets[$r]['cigMins'];
+    $catVisMin = $rulesets[$r]['visMins'];
+  } else {
+    $catClasses = $rulesets[$defaultRules]['classNames'];
+    $catNames2 = $rulesets[$defaultRules]['catNames'];
+    $catCigMin = $rulesets[$defaultRules]['cigMins'];
+    $catVisMin = $rulesets[$defaultRules]['visMins'];
+  }
   $mySid = '';
 ?>
 <html>
@@ -37,7 +69,7 @@ function ShowGroup(n) {
   </script>
 </head>
 <body>
-  <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">D<span style="font-family: serif; font-size: 28px;">&#8478;</span>. GoodTAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
+  <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">Dr. GoodTAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
 <?php
   $tafSearchStartTime = preg_replace('/\+00:00/','Z',date('c',strtotime('31 hours ago')));
   $tafSearchEndTime = preg_replace('/\+00:00/','Z',date('c',strtotime('25 hours ago')));
@@ -269,9 +301,12 @@ function CategoryOfGroup($xmlObj) {
   }
   // Vsby easier since it is a single value.
   // However it might be omitted, hence property_exists() call
-  $vis = 6.21;
-  if (property_exists($xmlObj,'visibility_statute_mi'))
-    $vis = (int)$xmlObj->visibility_statute_mi;
+  $vis = 99;
+  $catVis = count($catVisMin)-1;
+  if (property_exists($xmlObj,'visibility_statute_mi')) {
+    $vis = (float)$xmlObj->visibility_statute_mi;
+    if ($vis > 6) $vis = 10;
+  }
   for ($i = 1; $i < count($catVisMin); $i++) {
     if ($vis < $catVisMin[$i]) {
       $catVis = $i-1;
@@ -336,7 +371,7 @@ function sortPeriods($a,$b) {
 }
 
 function PrintForm() {
-  global $mySid, $disclaimer;
+  global $mySid, $disclaimer, $rulesets;
   $value = (strlen($mySid) > 0) ? ' value="'.$mySid.'"' : '';
 ?>
   <form action="<?php echo $self?>" method="get">
@@ -344,6 +379,19 @@ function PrintForm() {
       <label for="sid">Airport ICAO ID <i>(e.g. KJFK)</i></label>
       <span style="padding-left: 20px">
       <input type="text" name="sid" size="5" maxlength="4"<?php echo $value; ?>>
+      </span>
+    </p>
+    <p>
+      <label for="rules">Ruleset</label>
+      <span style="padding-left: 20px">
+      <select name="rules">
+<?php
+  foreach ($rulesets as $id => $ruleset) {
+    $name = $ruleset['name'];
+    echo "        <option value=\"$id\">$name</option>\n";
+  }
+?>
+      </select>
       </span>
     </p>
     <input type="submit" value="Go">
