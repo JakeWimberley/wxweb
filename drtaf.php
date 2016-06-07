@@ -12,6 +12,8 @@
   }
   $disclaimer = "TAF and METAR data courtesy <a href=\"http://aviationweather.gov/adds/\">Aviation Weather Center</a>, <a href=\"http://weather.gov\">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.";
   $self = 'taf.php'; //TODO shouldn't need this
+  $startTimeStr = '37 hours ago'; // anything compatible with strftime()
+  $endTimeStr = '25 hours ago';   //
   $rulesets = array(
       'std' => array(
         'name' => 'Flight Categories (Standard US)',
@@ -57,55 +59,57 @@
 	<title>Dr. Archibald Goodtaf, M.D.</title>
 	<link href="drtaf.css" rel="stylesheet">
   <script language="javascript">
-function ShowGroup(n) {
+function ShowGroup(m,n) {
+  // display tables metarGroup<m> to metarGroup<n> inclusive
   var displayRule;
-  if (n == -1) displayRule = 'block';
+  if (m == -1) displayRule = 'block';
   else displayRule = 'none';
-    var metarTableList = document.querySelectorAll('table.metar');
-    for (var i = 0; i < metarTableList.length; i++)
-      metarTableList[i].style.display = displayRule;
-  if (n == -1) return;
-  document.getElementById('metarGroup'+n).style.display = 'block';
+  var metarTableList = document.querySelectorAll('table.metar');
+  for (var i = 0; i < metarTableList.length; i++)
+    metarTableList[i].style.display = displayRule;
+  if (m == -1) return;
+  for (var i = m; i <= n; i++)
+    document.getElementById('metarGroup'+i).style.display = 'block';
 }
   </script>
 </head>
 <body>
   <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">Dr. GoodTAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
 <?php
-  $tafSearchStartTime = preg_replace('/\+00:00/','Z',date('c',strtotime('31 hours ago')));
-  $tafSearchEndTime = preg_replace('/\+00:00/','Z',date('c',strtotime('25 hours ago')));
+  $tafSearchStartTime = preg_replace('/\+00:00/','Z',date('c',strtotime($startTimeStr)));
+  $tafSearchEndTime = preg_replace('/\+00:00/','Z',date('c',strtotime($endTimeStr)));
   if (isset($_GET['sid'])) {
     $mySid = strtoupper(substr($_GET['sid'],0,4));
     if (strlen($mySid) == 3) $mySid = "K$mySid";
 
     // Fetch TAF and obs from valid period
-    $addsTafUrl = "http://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=xml&startTime=$tafSearchStartTime&endTime=$tafSearchEndTime&timeType=issue&mostRecent=true&stationString=$mySid";
-    if ($bTestMode) echo "<a href=\"$addsTafUrl\">TAF XML</a><br>\n";
+    $addsTafUrl = "http://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=xml&startTime=$tafSearchStartTime&endTime=$tafSearchEndTime&timeType=issue&stationString=$mySid";
     $tafXml = simplexml_load_file($addsTafUrl);
+    $leftDiv = '';
+    $rightDiv = '';
+
+    //// Make a first pass thru the TAFs in the XML.
+    //// Here, we'll bin obs into the ordered TAF group periods.
+    //// While we've got the period object, we'll also determine the category.
     $tafs = [];
+    $obsBinnedByPeriod = [];
+    $categories = [];
+    $tafGroup = 0;
+    $obGroup = 0;
     foreach ($tafXml->data->TAF as $issuanceXml) {
-      $taf = $issuanceXml->raw_text;
-      $issueTime = $issuanceXml->issue_time;
+      array_push($tafs,(string)$issuanceXml->raw_text);
+      // We can't rely on the TAF periods in the XML to be in the same order as
+      // they were in the actual TAF. So we're going to step thru the periods
+      // and put them into an array, which can then be sorted.
+      $periods = [];
+      foreach ($issuanceXml->forecast as $periodXml)
+        array_push($periods,$periodXml);
+      usort($periods, 'sortPeriods');
       $validStart = $issuanceXml->valid_time_from;
       $validEnd = $issuanceXml->valid_time_to;
       $addsMetarUrl = "http://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&startTime=$validStart&endTime=$validEnd&stationString=$mySid";
       $obsXml = simplexml_load_file($addsMetarUrl);
-      // We can't rely on the TAF periods in the XML to be in the same order as
-      // they were in the actual TAF. So we're going to step thru the periods
-      // and put them into an array, which can then be sorted.
-      $forecastPeriods = [];
-      foreach ($issuanceXml->forecast as $periodXml) {
-        $begin = date_create($periodXml->fcst_time_from);
-        $end = date_create($periodXml->fcst_time_to);
-        array_push($forecastPeriods,$periodXml);
-      }
-      usort($forecastPeriods, 'sortPeriods');
-      // Bin obs into the ordered TAF group periods.
-      // While we've got the period object, we'll also determine the category.
-      $obsBinnedByPeriod = [];
-      $categories = [];
-      $iPeriod = 0;
-      foreach ($forecastPeriods as $periodXml) {
+      foreach ($periods as $periodXml) {
         $begin = date_create($periodXml->fcst_time_from);
         $end = date_create($periodXml->fcst_time_to);
         array_push($categories, CategoryOfGroup($periodXml));
@@ -113,87 +117,92 @@ function ShowGroup(n) {
         foreach ($obsXml->data->METAR as $obXml) {
           $obTime = date_create($obXml->observation_time);
           if ($obTime > $begin && $obTime <= $end) {
-            array_unshift($obsBinnedByPeriod[$iPeriod],(string)$obXml->raw_text);
-            //echo "<b>begin=".date_format($begin,'c')."</b>\n";
-            //echo "<b>".date_format($obTime,'c')."</b>\n";
-            //echo "<b>end=".date_format($end,'c')."</b><br>\n";
+            if ($bTestMode) array_unshift($obsBinnedByPeriod[$obGroup],(string)$obXml->raw_text.' ['.date_format($begin,'dH').'/'.date_format($end,'dH').']');
+            else array_unshift($obsBinnedByPeriod[$obGroup],(string)$obXml->raw_text);
           }
         }
-        $iPeriod++;
+        $obGroup++;
       }
-      // print TAFs and obs
-      //// TAF DISPLAY SECTION
-      echo "<div class=\"left\">\n";
-      echo "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup(-1)\">TAF (click group to show only obs from that period, click here to show all)</p>\n";
-      echo "<table class=\"left\">\n";
+    }
+
+    //// Second pass thru TAF data: Print output with the grouping/ordering
+    //// determined in the first pass.
+    $tafGroup = 0;
+    $obGroup = 0;
+    $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s)</p>\n";
+    foreach ($tafs as $taf) {
+      //// Now create the content for the left (TAF) and right (obs) divs
+      //// on the page. Creating the content as a string will allow us to step
+      //// thru multiple TAFs, repeating the structure for each.
       list($fm,$cond) = SplitTaf($taf);
+      $lastGroupInTaf = $tafGroup + count($fm) - 1 + count(preg_grep('/./',$cond));
+      $leftDiv .= "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup($tafGroup,$lastGroupInTaf)\">TAF (click group for obs only from that period; click here for all from this TAF)</p>\n";
+      $leftDiv .= "<table class=\"left\">\n";
       list($fmTime,$condTime) = TafTimes($fm,$cond);
-      // groupNum is handled separately since the block arrays make
+      // N.B.: tafGroup must be handled separately since the block arrays make
       // no distinction between FM and conditional groups
-      for ($i = 0, $groupNum = 0; $i < count($fm); $i++, $groupNum++) {
-        list($cat,$catName) = $categories[$groupNum];
-        echo "  <tr onclick=\"javascript:ShowGroup($groupNum)\">\n";
+      for ($i = 0; $i < count($fm); $i++, $tafGroup++) {
+        list($cat,$catName) = $categories[$tafGroup];
+        $leftDiv .= "  <tr onclick=\"javascript:ShowGroup($tafGroup,$tafGroup)\">\n";
         if ($bTestMode) {
           $timeLimits = $fmTime[$i][0][0] . $fmTime[$i][0][1] . '/' .
                         $fmTime[$i][1][0] . $fmTime[$i][1][1];
-          echo "    <td>" . $groupNum . "<br><small>$timeLimits</small></td>\n";
+          $leftDiv .= "    <td>" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
         } else {
-          echo "    <td>" . $groupNum . "</td>\n";
+          $leftDiv .= "    <td>" . $tafGroup . "</td>\n";
         }
-        echo "    <td class=\"catname$cat\">$catName</td>\n";
-        echo "    <td class=\"tafmetar$cat\">";
-        if (preg_match('/^FM/',$fm[$i])) echo str_repeat('&nbsp;',5);
-        echo $fm[$i]."</td>\n";
-        echo "  </tr>\n";
+        $leftDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
+        $leftDiv .= "    <td class=\"tafmetar$cat\">";
+        if (preg_match('/^FM/',$fm[$i])) $leftDiv .= str_repeat('&nbsp;',5);
+        $leftDiv .= $fm[$i]."</td>\n";
+        $leftDiv .= "  </tr>\n";
         if (! empty($cond[$i])) {
-          $groupNum++;
-          list($cat,$catName) = $categories[$groupNum];
-          echo "  <tr onclick=\"javascript:ShowGroup($groupNum)\">\n";
+          $tafGroup++;
+          list($cat,$catName) = $categories[$tafGroup];
+          $leftDiv .= "  <tr onclick=\"javascript:ShowGroup($tafGroup,$tafGroup)\">\n";
           if ($bTestMode) {
             $timeLimits = $condTime[$i][0][0] . $condTime[$i][0][1] . '/' .
                           $condTime[$i][1][0] . $condTime[$i][1][1];
-            echo "    <td>" . $groupNum . "<br><small>$timeLimits</small></td>\n";
+            $leftDiv .= "    <td>" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
           } else {
-            echo "    <td>" . $groupNum . "</td>\n";
+            $leftDiv .= "    <td>" . $tafGroup . "</td>\n";
           }
-          echo "    <td class=\"catname$cat\">$catName</td>\n";
-          echo "    <td class=\"tafmetar$cat\">".str_repeat('&nbsp;',6).$cond[$i]."</td>\n";
-          echo "  </tr>\n";
+          $leftDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
+          $leftDiv .= "    <td class=\"tafmetar$cat\">".str_repeat('&nbsp;',6).$cond[$i]."</td>\n";
+          $leftDiv .= "  </tr>\n";
         }
       }
-      echo "</table>\n";
-      PrintLegend();
-      $disclaimer .= "<br><br>Input data: <a href=\"$addsTafUrl\">TAF</a>, <a href=\"$addsMetarUrl\">obs</a></p>\n";
-?>
-      <p>Still feeling lucky? Roll again.</p>
-<?php
-      PrintForm();
-      echo "</div>\n";
-      echo "<div class=\"right\">\n";
-      //// METAR DISPLAY SECTION
-      $obGroup = 0;
-      echo "<p id=\"metarTitle\">Observations during the TAF valid period</p>\n";
+      $leftDiv .= "</table>\n";
       foreach ($obsBinnedByPeriod as $periodObs) {
-        echo "<table class=\"metar right\" id=\"metarGroup$obGroup\">\n";
+        $rightDiv .= "<table class=\"metar right\" id=\"metarGroup$obGroup\">\n";
         foreach ($periodObs as $metar) {
           $metar = str_replace("\n",' ',$metar);
           list($cat,$catName) = CategoryFromCoded($metar);
-          echo "  <tr>\n";
-          echo "    <td>$obGroup</td>\n";
-          echo "    <td class=\"catname$cat\">$catName</td>\n";
-          echo "    <td class=\"tafmetar$cat\">$metar</td>\n";
-          echo "  </tr>\n";
+          $rightDiv .= "  <tr>\n";
+          $rightDiv .= "    <td>$obGroup</td>\n";
+          $rightDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
+          $rightDiv .= "    <td class=\"tafmetar$cat\">$metar</td>\n";
+          $rightDiv .= "  </tr>\n";
         }
-        echo "</table>\n";
+        $rightDiv .= "</table>\n";
         $obGroup++;
       }
-      echo "</div>\n";
-    }
+    } // end TAF object loop
+    // Print the div content just like I said we would.
+    $leftDiv .= PrintLegend();
+    // TODO make script only request one set of metars for inclusive period, then add the following line back
+    //$disclaimer .= "<br><br>Input data: <a href=\"$addsTafUrl\">TAF</a>, <a href=\"$addsMetarUrl\">obs</a></p>\n";
+    $leftDiv .= "      <p>Still feeling lucky? Roll again.</p>\n";
+    $leftDiv .= PrintForm();
+    echo "<div class=\"left\">\n";
+    echo $leftDiv;
+    echo "</div>\n";
+    echo "<div class=\"right\">\n";
+    echo $rightDiv;
+    echo "</div>\n";
   } else { // ! isset sid
-?>
-  <p>This is a TAF verification tool. Enter a TAF site, and a forecast for that site will be displayed along with the obs from its valid period.</p>
-<?php
-    PrintForm();
+    echo "  <p>This is a TAF verification tool. Enter a TAF site, and the forecasts for that site issued between <b>$endTimeStr</b> and <b>$startTimeStr</b> will be displayed, along with the verifying obs for each.</p>\n";
+    echo PrintForm();
   }
 ?>
   </body>
@@ -374,32 +383,36 @@ function sortPeriods($a,$b) {
 function PrintForm() {
   global $mySid, $ruleId, $disclaimer, $rulesets;
   $value = (strlen($mySid) > 0) ? ' value="'.$mySid.'"' : '';
-?>
-  <form action="<?php echo $self?>" method="get">
+  $out = '';
+  $out .= <<<EOT
+  <form action="$self" method="get">
     <p>
       <label for="sid">Airport ICAO ID <i>(e.g. KJFK)</i></label>
       <span style="padding-left: 20px">
-      <input type="text" name="sid" size="5" maxlength="4"<?php echo $value; ?>>
+      <input type="text" name="sid" size="5" maxlength="4"$value>
       </span>
     </p>
     <p>
       <label for="rules">Ruleset</label>
       <span style="padding-left: 20px">
       <select name="rules">
-<?php
+
+EOT;
   foreach ($rulesets as $id => $ruleset) {
     $name = $ruleset['name'];
     $sel = ($id === $ruleId) ? ' selected' : '';
-    echo "        <option value=\"$id\"$sel>$name</option>\n";
+    $out .= "        <option value=\"$id\"$sel>$name</option>\n";
   }
-?>
+  $out .= <<<EOT
       </select>
       </span>
     </p>
     <input type="submit" value="Go">
   </form>
-<?php
-  echo "<p class=\"disclaimer\">$disclaimer</p>\n";
+  <p class="disclaimer">$disclaimer</p>
+
+EOT;
+  return $out;
 }
 
 function PrintLegend() {
@@ -410,12 +423,14 @@ function PrintLegend() {
   $names = array_reverse($catText);
   $cigs = array_reverse($catCigMin);
   $vsbys = array_reverse($catVisMin);
-?>
+  $out = '';
+  $out .= <<<EOT
   <table class="legend">
     <tr>
       <td class="legend" colspan="2">Category Minima</td>
     </tr>
-<?php
+
+EOT;
   for ($z = 0; $z < count($names); $z++) {
     $cat = ' '.$classes[$z];
     $opr = '> ';
@@ -425,13 +440,18 @@ function PrintLegend() {
       $opr = '< ';
     }
     else $opr = '';
-    echo "    <tr>\n";
-    echo "      <td class=\"legend catname$cat\">".$names[$z]."</td>\n";
-    echo "      <td class=\"legend\">".$opr.$cigs[$z].' ft, '.$opr.$vsbys[$z]."SM</td>\n";
-    echo "    </tr>\n";
+    $out .= <<<EOT
+    <tr>
+      <td class="legend catname$cat">$names[$z]</td>
+      <td class="legend">$opr$cigs[$z] ft, $opr$vsbys[$z]SM</td>
+    </tr>
+
+EOT;
   }
-?>
+    $out .= <<<EOT
   </table>
-    <?php
+
+EOT;
+  return $out;
 }
 ?>
