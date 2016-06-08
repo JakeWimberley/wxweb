@@ -144,11 +144,11 @@ function ShowGroup(m,n) {
     //// grouping/ordering determined in the second pass. We'll use $tafs this
     //// time, which only contains the TAF strings themselves.
     $tafGroup = 0;
-    $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s)</p>\n";
+    $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s) - put mouse over table to scroll</p>\n";
     foreach ($tafs as $taf) {
       list($fm,$cond) = SplitTaf($taf);
       $lastGroupInTaf = $tafGroup + count($fm) - 1 + count(preg_grep('/./',$cond));
-      $leftDiv .= "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup($tafGroup,$lastGroupInTaf)\">TAF (click group for obs only from that period; click here for all from this TAF)</p>\n";
+      $leftDiv .= "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup($tafGroup,$lastGroupInTaf)\">TAF - click group for obs only from that period; click here for all from this TAF</p>\n";
       $leftDiv .= "<table class=\"left\">\n";
       list($fmTime,$condTime) = TafTimes($fm,$cond);
       // N.B.: tafGroup must be handled separately since the block arrays make

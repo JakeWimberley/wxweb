@@ -19,7 +19,7 @@ table.left {
   margin-bottom: 30px;
 }
 table.right {
-  width: 700px;
+  width: 690px;
 }
 table.legend {
   margin-top: 16px;
@@ -97,15 +97,22 @@ div.left {
   width: 500px;
 }
 div.right {
-  position: absolute;
-  left: 510px;
-  width: 700px;
+  position: fixed;
+  left: 520px;
+  width: 720px;
+  height: 650px;
+  overflow-y: scroll;
 }
-p#metarTitle, p#tafTitle {
+p#tafTitle,p#metarTitle {
   text-align: center;
   background-color: #bbbbbb;
   color: black;
   font-size: 13px;
   margin-bottom: 5px;
   border: 0px;
+}
+
+p#metarTitle {
+  /* same width as TAF table */
+  width: 690px;
 }
