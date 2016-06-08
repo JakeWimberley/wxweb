@@ -159,9 +159,9 @@ function ShowGroup(m,n) {
         if ($bTestMode) {
           $timeLimits = $fmTime[$i][0][0] . $fmTime[$i][0][1] . '/' .
                         $fmTime[$i][1][0] . $fmTime[$i][1][1];
-          $leftDiv .= "    <td>" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
+          $leftDiv .= "    <td class=\"num\">" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
         } else {
-          $leftDiv .= "    <td>" . $tafGroup . "</td>\n";
+          $leftDiv .= "    <td class=\"num\">" . $tafGroup . "</td>\n";
         }
         $leftDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
         $leftDiv .= "    <td class=\"tafmetar$cat\">";
@@ -175,9 +175,9 @@ function ShowGroup(m,n) {
           if ($bTestMode) {
             $timeLimits = $condTime[$i][0][0] . $condTime[$i][0][1] . '/' .
                           $condTime[$i][1][0] . $condTime[$i][1][1];
-            $leftDiv .= "    <td>" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
+            $leftDiv .= "    <td class=\"num\">" . $tafGroup . "<br><small>$timeLimits</small></td>\n";
           } else {
-            $leftDiv .= "    <td>" . $tafGroup . "</td>\n";
+            $leftDiv .= "    <td class=\"num\">" . $tafGroup . "</td>\n";
           }
           $leftDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
           $leftDiv .= "    <td class=\"tafmetar$cat\">".str_repeat('&nbsp;',6).$cond[$i]."</td>\n";
@@ -194,7 +194,7 @@ function ShowGroup(m,n) {
         $metar = str_replace("\n",' ',$metar);
         list($cat,$catName) = CategoryFromCoded($metar);
         $rightDiv .= "  <tr>\n";
-        $rightDiv .= "    <td>$obGroup</td>\n";
+        $rightDiv .= "    <td class=\"num\">$obGroup</td>\n";
         $rightDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
         $rightDiv .= "    <td class=\"tafmetar$cat\">$metar</td>\n";
         $rightDiv .= "  </tr>\n";

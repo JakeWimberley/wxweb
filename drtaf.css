@@ -82,8 +82,11 @@ td.legend {
   padding: 2px;
   text-align: center;
 }
+td.num {
+  text-align: center;
+}
 td {
-  padding: 5px;
+  padding: 3px;
 }
 p.disclaimer {
   text-decoration: none;
