@@ -2,6 +2,7 @@ body {
  position: absolute;
  background-color: DarkBlue;
  color: #FFFFFF; 
+ width: 95%;
 }
 p {
  text-align: left;
@@ -22,8 +23,11 @@ table.right {
   width: 690px;
 }
 table.legend {
-  margin-top: 16px;
-  font-size: 10px;
+  text-align: center;
+  font-weight: bold;
+  width: 100%;
+  font-size: 12px;
+  margin-top: 20px;
 }
 table {
   border: 0px;
@@ -76,14 +80,17 @@ td.tafmetar {
 td.catname {
   text-align: center;
   font-weight: bold;
-  width: 50px;
+  width: 4em;
+  /*min-width: 3em;
+  max-width: 9em;*/
 }
 td.legend {
+  min-width: 100px;
   padding: 2px;
-  text-align: center;
 }
 td.num {
   text-align: center;
+  width: 1em;
 }
 td {
   padding: 3px;
@@ -100,7 +107,7 @@ div.right {
   position: fixed;
   left: 520px;
   width: 720px;
-  height: 650px;
+  max-height: 77%;
   overflow-y: scroll;
 }
 p#tafTitle,p#metarTitle {

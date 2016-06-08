@@ -39,12 +39,14 @@
   );
   $defaultRules = 'std';
   $ruleId = '';
+  $ruleName = '';
   if (isset($_GET['rules'])) {
     $ruleId = $_GET['rules'];
     $catClasses = $rulesets[$ruleId]['classNames'];
     $catText = $rulesets[$ruleId]['catNames'];
     $catCigMin = $rulesets[$ruleId]['cigMins'];
     $catVisMin = $rulesets[$ruleId]['visMins'];
+    $ruleName = $rulesets[$ruleId]['name'];
   } else {
     $catClasses = $rulesets[$defaultRules]['classNames'];
     $catText = $rulesets[$defaultRules]['catNames'];
@@ -94,11 +96,18 @@ function ShowGroup(m,n) {
     // and request one set of METARs covering that whole period.
     $validStart = date_create('3000-01-01'); // Fry?!
     $validEnd = date_create('1800-01-01');
+    $foundTaf = FALSE;
     foreach ($tafXml->data->TAF as $issuanceXml) {
+      $foundTaf = TRUE;
       $dtStart = date_create($issuanceXml->valid_time_from);
       $dtEnd = date_create($issuanceXml->valid_time_to);
       if ($dtStart < $validStart) $validStart = $dtStart;
       if ($dtEnd > $validEnd) $validEnd = $dtEnd;
+    }
+    if (! $foundTaf) {
+      echo "<p>Whoa there! Apparently <b>$mySid</b> ain't a TAF site. Go figure.</p>\n";
+      echo PrintForm();
+      break;
     }
     $validStart = preg_replace('/\+00:00/','Z',date_format($validStart,'c'));
     $validEnd = preg_replace('/\+00:00/','Z',date_format($validEnd,'c'));
@@ -144,7 +153,7 @@ function ShowGroup(m,n) {
     //// grouping/ordering determined in the second pass. We'll use $tafs this
     //// time, which only contains the TAF strings themselves.
     $tafGroup = 0;
-    $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s) - put mouse over table to scroll</p>\n";
+    $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s) - place cursor over table to scroll</p>\n";
     foreach ($tafs as $taf) {
       list($fm,$cond) = SplitTaf($taf);
       $lastGroupInTaf = $tafGroup + count($fm) - 1 + count(preg_grep('/./',$cond));
@@ -203,10 +212,10 @@ function ShowGroup(m,n) {
       $obGroup++;
     }
     // Print the div content just like I said we would.
-    $leftDiv .= PrintLegend();
     $disclaimer .= "<br><br>Input data: <a href=\"$addsTafUrl\">TAF</a>, <a href=\"$addsMetarUrl\">obs</a></p>\n";
     $leftDiv .= "      <p>Still feeling lucky? Roll again.</p>\n";
     $leftDiv .= PrintForm();
+    echo PrintLegend();
     echo "<div class=\"left\">\n";
     echo $leftDiv;
     echo "</div>\n";
@@ -429,19 +438,21 @@ EOT;
 }
 
 function PrintLegend() {
-  global $catClasses, $catText, $catCigMin, $catVisMin;
+  global $catClasses, $catText, $catCigMin, $catVisMin, $ruleName;
   // reverse the arrays as we have to start from the front,
   // and we want the front to be the VFR end
   $classes = array_reverse($catClasses);
   $names = array_reverse($catText);
   $cigs = array_reverse($catCigMin);
   $vsbys = array_reverse($catVisMin);
+  $colspan = count($names);
   $out = '';
   $out .= <<<EOT
   <table class="legend">
     <tr>
-      <td class="legend" colspan="2">Category Minima</td>
+      <td class="legend" colspan="$colspan">Verifying Minima for $ruleName</td>
     </tr>
+    <tr>
 
 EOT;
   for ($z = 0; $z < count($names); $z++) {
@@ -454,14 +465,12 @@ EOT;
     }
     else $opr = '';
     $out .= <<<EOT
-    <tr>
-      <td class="legend catname$cat">$names[$z]</td>
-      <td class="legend">$opr$cigs[$z] ft, $opr$vsbys[$z]SM</td>
-    </tr>
+      <td class="legend catname$cat">$names[$z]<br>$opr$cigs[$z] ft, $opr$vsbys[$z]SM</td>
 
 EOT;
   }
     $out .= <<<EOT
+    </tr>
   </table>
 
 EOT;
