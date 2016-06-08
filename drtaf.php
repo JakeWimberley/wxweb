@@ -11,7 +11,7 @@
     ini_set('display_errors',FALSE);
   }
   $disclaimer = "TAF and METAR data courtesy <a href=\"http://aviationweather.gov/adds/\">Aviation Weather Center</a>, <a href=\"http://weather.gov\">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.";
-  $self = 'taf.php'; //TODO shouldn't need this
+  $self = 'drtaf.php'; //TODO shouldn't need this
   $startTimeStr = '37 hours ago'; // anything compatible with strftime()
   $endTimeStr = '25 hours ago';   //
   $rulesets = array(
@@ -76,6 +76,7 @@ function ShowGroup(m,n) {
 <body>
   <p style="font-size: 20px; margin: 10px 0px 10px 0px;"><span style="font-size: 36px;">Dr. GoodTAF</span> or: <i>How I Learned To Stop Worrying and Love VLIFR</i></p>
 <?php
+  // ADDS server does not understand a "real" ISO 8601 date
   $tafSearchStartTime = preg_replace('/\+00:00/','Z',date('c',strtotime($startTimeStr)));
   $tafSearchEndTime = preg_replace('/\+00:00/','Z',date('c',strtotime($endTimeStr)));
   if (isset($_GET['sid'])) {
@@ -88,7 +89,22 @@ function ShowGroup(m,n) {
     $leftDiv = '';
     $rightDiv = '';
 
-    //// Make a first pass thru the TAFs in the XML.
+    // Make our first pass thru the TAF data.
+    // We'll figure out the earliest and latest times covered by all the TAFs,
+    // and request one set of METARs covering that whole period.
+    $validStart = date_create('3000-01-01'); // Fry?!
+    $validEnd = date_create('1800-01-01');
+    foreach ($tafXml->data->TAF as $issuanceXml) {
+      $dtStart = date_create($issuanceXml->valid_time_from);
+      $dtEnd = date_create($issuanceXml->valid_time_to);
+      if ($dtStart < $validStart) $validStart = $dtStart;
+      if ($dtEnd > $validEnd) $validEnd = $dtEnd;
+    }
+    $validStart = preg_replace('/\+00:00/','Z',date_format($validStart,'c'));
+    $validEnd = preg_replace('/\+00:00/','Z',date_format($validEnd,'c'));
+    $addsMetarUrl = "http://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&startTime=$validStart&endTime=$validEnd&stationString=$mySid";
+    $obsXml = simplexml_load_file($addsMetarUrl);
+    //// Make another pass thru the TAFs in the XML.
     //// Here, we'll bin obs into the ordered TAF group periods.
     //// While we've got the period object, we'll also determine the category.
     $tafs = [];
@@ -105,10 +121,6 @@ function ShowGroup(m,n) {
       foreach ($issuanceXml->forecast as $periodXml)
         array_push($periods,$periodXml);
       usort($periods, 'sortPeriods');
-      $validStart = $issuanceXml->valid_time_from;
-      $validEnd = $issuanceXml->valid_time_to;
-      $addsMetarUrl = "http://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&startTime=$validStart&endTime=$validEnd&stationString=$mySid";
-      $obsXml = simplexml_load_file($addsMetarUrl);
       foreach ($periods as $periodXml) {
         $begin = date_create($periodXml->fcst_time_from);
         $end = date_create($periodXml->fcst_time_to);
@@ -117,6 +129,9 @@ function ShowGroup(m,n) {
         foreach ($obsXml->data->METAR as $obXml) {
           $obTime = date_create($obXml->observation_time);
           if ($obTime > $begin && $obTime <= $end) {
+            // note that though we are not saving $periods for later use,
+            // $obGroup does not get reset between TAFs.
+            // $obsBinnedByPeriod thus reflects all periods from all TAFs.
             if ($bTestMode) array_unshift($obsBinnedByPeriod[$obGroup],(string)$obXml->raw_text.' ['.date_format($begin,'dH').'/'.date_format($end,'dH').']');
             else array_unshift($obsBinnedByPeriod[$obGroup],(string)$obXml->raw_text);
           }
@@ -125,15 +140,12 @@ function ShowGroup(m,n) {
       }
     }
 
-    //// Second pass thru TAF data: Print output with the grouping/ordering
-    //// determined in the first pass.
+    //// Final pass thru TAF data: Fill left div with output with the
+    //// grouping/ordering determined in the second pass. We'll use $tafs this
+    //// time, which only contains the TAF strings themselves.
     $tafGroup = 0;
-    $obGroup = 0;
     $rightDiv .= "<p id=\"metarTitle\">Observations during the selected period(s)</p>\n";
     foreach ($tafs as $taf) {
-      //// Now create the content for the left (TAF) and right (obs) divs
-      //// on the page. Creating the content as a string will allow us to step
-      //// thru multiple TAFs, repeating the structure for each.
       list($fm,$cond) = SplitTaf($taf);
       $lastGroupInTaf = $tafGroup + count($fm) - 1 + count(preg_grep('/./',$cond));
       $leftDiv .= "<p id=\"tafTitle\" onclick=\"javascript:ShowGroup($tafGroup,$lastGroupInTaf)\">TAF (click group for obs only from that period; click here for all from this TAF)</p>\n";
@@ -173,25 +185,26 @@ function ShowGroup(m,n) {
         }
       }
       $leftDiv .= "</table>\n";
-      foreach ($obsBinnedByPeriod as $periodObs) {
-        $rightDiv .= "<table class=\"metar right\" id=\"metarGroup$obGroup\">\n";
-        foreach ($periodObs as $metar) {
-          $metar = str_replace("\n",' ',$metar);
-          list($cat,$catName) = CategoryFromCoded($metar);
-          $rightDiv .= "  <tr>\n";
-          $rightDiv .= "    <td>$obGroup</td>\n";
-          $rightDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
-          $rightDiv .= "    <td class=\"tafmetar$cat\">$metar</td>\n";
-          $rightDiv .= "  </tr>\n";
-        }
-        $rightDiv .= "</table>\n";
-        $obGroup++;
-      }
     } // end TAF object loop
+    //// Step thru the METAR groups and put the tables in the right div.
+    $obGroup = 0;
+    foreach ($obsBinnedByPeriod as $periodObs) {
+      $rightDiv .= "<table class=\"metar right\" id=\"metarGroup$obGroup\">\n";
+      foreach ($periodObs as $metar) {
+        $metar = str_replace("\n",' ',$metar);
+        list($cat,$catName) = CategoryFromCoded($metar);
+        $rightDiv .= "  <tr>\n";
+        $rightDiv .= "    <td>$obGroup</td>\n";
+        $rightDiv .= "    <td class=\"catname$cat\">$catName</td>\n";
+        $rightDiv .= "    <td class=\"tafmetar$cat\">$metar</td>\n";
+        $rightDiv .= "  </tr>\n";
+      }
+      $rightDiv .= "</table>\n";
+      $obGroup++;
+    }
     // Print the div content just like I said we would.
     $leftDiv .= PrintLegend();
-    // TODO make script only request one set of metars for inclusive period, then add the following line back
-    //$disclaimer .= "<br><br>Input data: <a href=\"$addsTafUrl\">TAF</a>, <a href=\"$addsMetarUrl\">obs</a></p>\n";
+    $disclaimer .= "<br><br>Input data: <a href=\"$addsTafUrl\">TAF</a>, <a href=\"$addsMetarUrl\">obs</a></p>\n";
     $leftDiv .= "      <p>Still feeling lucky? Roll again.</p>\n";
     $leftDiv .= PrintForm();
     echo "<div class=\"left\">\n";
@@ -381,7 +394,7 @@ function sortPeriods($a,$b) {
 }
 
 function PrintForm() {
-  global $mySid, $ruleId, $disclaimer, $rulesets;
+  global $self, $mySid, $ruleId, $disclaimer, $rulesets;
   $value = (strlen($mySid) > 0) ? ' value="'.$mySid.'"' : '';
   $out = '';
   $out .= <<<EOT
