@@ -118,8 +118,10 @@ p#tafTitle,p#metarTitle {
   margin-bottom: 5px;
   border: 0px;
 }
-
 p#metarTitle {
   /* same width as TAF table */
   width: 690px;
+}
+ul {
+ font: 16px sans-serif;
 }

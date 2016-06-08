@@ -223,7 +223,15 @@ function ShowGroup(m,n) {
     echo $rightDiv;
     echo "</div>\n";
   } else { // ! isset sid
-    echo "  <p>This is a TAF verification tool. Enter a TAF site, and the forecasts for that site issued between <b>$endTimeStr</b> and <b>$startTimeStr</b> will be displayed, along with the verifying obs for each.</p>\n";
+    echo "  <p>This is a TAF verification tool. Enter a TAF site, and the forecasts for that site issued between <b>$endTimeStr</b> and <b>$startTimeStr</b> will be displayed, along with the verifying obs for each. Be aware that Dr. GoodTAF presently has the following limitations:</p>\n";
+?>
+  <ul>
+    <li>Only observations <i>during periods</i> are processed. E.g., you won't be able to tell what the category was at the start of the first period.</li>
+    <li>Only North American style TAFs are supported (no metric cigs, no &quot;CAVOK,&quot; etc.)</li>
+    <li>Similarly, BECMG groups will cause a spectacular explosion. So stay away from military or Canadian TAFs.</li>
+    <li>&quot;Commercial impacts&quot; may not be the same at all airports or for all operations; they are a guideline.</li>
+  </ul>
+<?php
     echo PrintForm();
   }
 ?>
