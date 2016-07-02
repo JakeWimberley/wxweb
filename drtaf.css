@@ -25,9 +25,9 @@ table.right {
 table.legend {
   text-align: center;
   font-weight: bold;
-  width: 100%;
+  width: 1230px;
   font-size: 12px;
-  margin-top: 20px;
+  margin: 20px 0px 12px 0px;
 }
 table {
   border: 0px;
@@ -115,7 +115,7 @@ p#tafTitle,p#metarTitle {
   background-color: #bbbbbb;
   color: black;
   font-size: 13px;
-  margin-bottom: 5px;
+  margin: 5px 0px 5px 0px;
   border: 0px;
 }
 p#metarTitle {

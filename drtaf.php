@@ -17,10 +17,10 @@
   $rulesets = array(
       'std' => array(
         'name' => 'Flight Categories (Standard US)',
-        'catNames' => array('VLIFR','LIFR','IFR','IFR','MVFR','VFR'),
-        'classNames' => array('vlifr','ifr1','ifr2','ifr2','mvfr2','vfr3'),
-        'cigMins' => array(-1,200,500,500,1000,3100),
-        'visMins' => array(-1,0.5,1.0,2.0,3.0,6.0),
+        'catNames' => array('VLIFR','LIFR','IFR','MVFR','VFR'),
+        'classNames' => array('vlifr','ifr1','ifr2','mvfr2','vfr3'),
+        'cigMins' => array(-1,200,500,1000,3100),
+        'visMins' => array(-1,0.5,1.0,3.0,6.0),
       ),
       'dlac' => array(
         'name' => 'Flight Categories (DLAC)',
