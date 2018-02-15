@@ -13,6 +13,9 @@
 		width: 480px;
 		display: inline-block;
 	}
+	#queries {
+		float: right;
+	}
 	#graph, #topTitle, #bottomTitle {
 		background-color: lightskyblue;
 	}
@@ -41,14 +44,20 @@
 		fill: linen;
 	}
 	#graph text {
-		font: 10px sans-serif;
-		text-anchor: end;
+		font-family: 'Kanit', sans-serif;
+	}
+	.clickedValue {
+		fill: red;
+		font-size: 20px;
+		text-anchor: middle;
 	}
 	.xAxis line, .xAxis path {
 		stroke: linen;
 	}
 	.xAxis text {
 		fill: linen;
+		font-size: 10px;
+		text-anchor: end;
 	}
 	.sameWidthAsGraph {
 		margin: 0px;
@@ -68,6 +77,7 @@
 	var mapPicker;
 	var graphDimensions = { width: 1600*0.75, height: 900*0.6, easementTimeAxis: 20, gapTimeAxis: 3 };
 	var daysOfWeek = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+	var metFormat = d3.format(".2r");
 	var elementChoices = {
 		'temperature': 'Temperature',
 		'dewpoint': 'Dewpoint',
@@ -85,6 +95,9 @@
 		var endTime = moment(s[0]).add(moment.duration(s[1]));
 		return [startTime.toDate(),endTime.toDate()];
 	}
+	function ClearClicks() {
+		d3.selectAll(".clickedValue").remove();
+	}
 	function DrawForecast(f,e,tr) {
 		//console.log('drawing forecast of element ' + e + ' for ' + f.locationName);
 		/*
@@ -97,7 +110,18 @@
 		var allValidPeriods = f.wx[e].values.map(i => ParsePeriod(i.validTime));
 		// elementValues is the list of meteorological values only.
 		var elementValues = f.wx[e].values.map(i => i.value);
-		var ScaleBarHeight = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([1,graphDimensions.height]);
+		var ScaleBarHeight;
+		if (e == 'probabilityOfPrecipitation' || e == 'skyCover') { // always 0 to 100%
+			ScaleBarHeight = d3.scaleLinear().domain([0,100]).range([1,graphDimensions.height]);
+		} else {
+			ScaleBarHeight = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([1,graphDimensions.height]);
+		}
+		var ScaleClickValue = function(v) {
+			if (ScaleBarHeight(v) < 21)
+				return (graphDimensions.height - ScaleBarHeight(v) - 4); // above bar
+			else
+				return (graphDimensions.height - ScaleBarHeight(v) + 24); // within bar
+		};
 		var fullTimeRange = ParsePeriod(f.validRange);
 		var displayTimeRange = tr ? tr : fullTimeRange;
 		var ScaleBarWidth = d3.scaleTime().domain(displayTimeRange).range([10,graphDimensions.width-10]);
@@ -108,6 +132,7 @@
 		d3.select("#elementName").text(" \u25B8 " + elementChoices[e]);
 		d3.select("#timeRangeDesc").text(timeRangeDescription);		
 		d3.select("#gridpointUrl").attr("href", f.gridpointUrl).text('View raw data for ' + f.locationName);
+		ClearClicks(); // clear any bar values plotted on last draw
 		var graph = d3.select("#graph")
 			.attr("width", graphDimensions.width)
 			.attr("height", graphDimensions.height + graphDimensions.easementTimeAxis);
@@ -121,14 +146,25 @@
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + (graphDimensions.height - ScaleBarHeight(d.value)) + ' '
 									 + ScaleBarWidth(allValidPeriods[i][0]) + ',' + (graphDimensions.height - ScaleBarHeight(d.value)); 
-								return attr; } );
+								return attr; } )
+			.on("click", function(d,i) { graph.append("text")
+											.attr("class", "clickedValue")
+											.attr("y", ScaleClickValue(d.value))
+											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
+											.text(metFormat(d.value)); });
 		bars.exit().remove();
 		bars.enter().append("polygon")
 			.attr("points", function(d,i) { var attr = ScaleBarWidth(allValidPeriods[i][0]) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + (graphDimensions.height - ScaleBarHeight(d.value)) + ' '
 									 + ScaleBarWidth(allValidPeriods[i][0]) + ',' + (graphDimensions.height - ScaleBarHeight(d.value)); 
-								return attr; } );
+								return attr; } )
+			.on("click", function(d,i) { graph.append("text")
+											.attr("class", "clickedValue")
+											.attr("y", ScaleClickValue(d.value))											
+											//.attr("y", (graphDimensions.height - ScaleBarHeight(d.value) + 24))
+											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
+											.text(metFormat(d.value)); });
 		var timeAxis = d3.axisBottom(ScaleBarWidth).tickPadding(1);
 		//var timeAxis = d3.axisBottom(ScaleBarWidth).tickFormat(d3.timeFormat("%a")).tickPadding(1);
 		d3.selectAll("g.xAxis")
@@ -183,10 +219,14 @@
 
 <p style="font-weight: bold; color: purple"><span style="font-size: 28px; color: black">Hourly Weather Grapher</span> <i>does not work in Internet Explorer</i></p>
 <div id="controlContainer">
-<div id="llPicker"></div><span style="padding-left: 50px;">&nbsp;</span>Plot <select id="queryElement"></select> from <select id="queryStartTime"></select> through <select id="queryEndTime"></select>
+<div id="llPicker"></div>
+<div id="queries">Plot <select id="queryElement"></select> from <select id="queryStartTime"></select> through <select id="queryEndTime"></select><br>
+Click on any bar in the graph to plot its value. <button onclick="ClearClicks()">Clear plotted values</button><br>
+If you don't like the city name, click it and you can type in a better one.
+</div>
 </div>
 <div id="imageContainer">
-<p id="topTitle" class="sameWidthAsGraph"><span id="placeName">Click a location on the map first, </span><span id="elementName">then choose a wx element</span><br><span id="timeRangeDesc">and a time range</span></p>
+<p id="topTitle" class="sameWidthAsGraph"><span id="placeName" contenteditable="true">Click a location on the map first, </span><span id="elementName">then choose a wx element</span><br><span id="timeRangeDesc">and a time range</span></p>
 <svg id="graph"></svg><p id="bottomTitle" class="sameWidthAsGraph">National Weather Service &#x25B8; <span id="officeName">Local Forecast Office</span> &#x25B8; <span id="officeWebsite">[URL]</span></p>
 </div>
 <p id="footer">A Jake Wimberley Production. <a id="gridpointUrl" href="#">Huh?</a></p>
