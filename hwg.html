@@ -83,14 +83,54 @@
 	var daysOfWeek = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 	var metFormat = d3.format(".2r");
 	var elementChoices = {
-		'temperature': 'Temperature',
-		'dewpoint': 'Dewpoint',
-		'relativeHumidity': 'Relative Humidity',
-		'apparentTemperature': 'Apparent Temperature',
-		'skyCover': 'Sky Cover',
-		'windSpeed': 'Wind Speed',
-		'windGust': 'Wind Gust',
-		'probabilityOfPrecipitation': 'Chance of Precipitation',
+		'temperature': {
+			displayName: 'Temperature',
+			rawUnit: "°C",
+			displayUnit: '°F',
+			convert: function(c) { return((c * 9 / 5.) + 32); }
+		},
+		'dewpoint': {
+			displayName: 'Dewpoint',
+			rawUnit: "°C",
+			displayUnit: '°F',
+			convert: function(c) { return((c * 9 / 5.) + 32); }
+		},
+		'relativeHumidity': {
+			displayName: 'Relative Humidity',
+			rawUnit: '%',
+			displayUnit: '%',
+			convert: function(c) { return(c); }
+		},
+		'apparentTemperature': {
+			displayName: 'Apparent Temperature',
+			rawUnit: "°C",
+			displayUnit: '°F',
+			convert: function(c) { return((c * 9 / 5.) + 32); }
+		},
+		'skyCover': {
+			displayName: 'Sky Cover',
+			rawUnit: '%',
+			displayUnit: '%',
+			convert: function(c) { return(c); }
+		},
+		'windSpeed': {
+			displayName: 'Wind Speed',
+			rawUnit: 'm/s',
+			displayUnit: 'kt',
+			convert: function(c) { return(c * 1.944); }
+		},
+		'windGust': {
+			displayName: 'Wind Gust',
+			rawUnit: 'm/s',
+			displayUnit: 'kt',
+			convert: function(c) { return(c * 1.944); }
+		},
+		'probabilityOfPrecipitation': {
+			displayName: 'Chance of Precipitation',
+			rawUnit: '%',
+			displayUnit: '%',
+			convert: function(c) { return(c); }
+		},
 	};
 	function ParsePeriod(v) {
 		// v is a string in ISO 8601 duration format
@@ -135,7 +175,7 @@
 		d3.select("#officeName").text(f.officeName);
 		d3.select("#officeWebsite").text(f.website);
 		d3.select("#placeName").text(f.locationName);
-		d3.select("#elementName").text(" \u25B8 " + elementChoices[e]);
+		d3.select("#elementName").text(" \u25B8 " + elementChoices[e]["displayName"] + " (" + elementChoices[e]["rawUnit"] + ")");
 		d3.select("#timeRangeDesc").text(timeRangeDescription);		
 		d3.select("#gridpointUrl").attr("href", f.gridpointUrl).text('View raw data for ' + f.locationName);
 		ClearClicks(); // clear any bar values plotted on last draw
@@ -276,7 +316,7 @@ $(function() {
 		maxZoom: 13,
 	}).addTo(mapPicker);
 	mapPicker.on('click', getLLFromClick);
-	$.each(elementChoices, function(e) { qE.append($("<option />").val(e).text(elementChoices[e])); });
+	$.each(elementChoices, function(e) { qE.append($("<option />").val(e).text(elementChoices[e]["displayName"])); });
 	// populate time selections by calculating offsets from fcstStart
 	$.each(periodList,
 		function(e) {
