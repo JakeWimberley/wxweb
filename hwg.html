@@ -51,13 +51,17 @@
 		font-size: 20px;
 		text-anchor: middle;
 	}
-	.xAxis line, .xAxis path {
+	.xAxis line, .xAxis path, .wxGridline line {
 		stroke: linen;
 	}
 	.xAxis text {
 		fill: linen;
-		font-size: 10px;
+		font-size: 12px;
 		text-anchor: end;
+	}
+	.wxGridline text {
+		fill: linen;
+		font-size: 12px;
 	}
 	.sameWidthAsGraph {
 		margin: 0px;
@@ -75,7 +79,7 @@
 	var currentLL = {};
 	currentLL.latlng = { lat: 35, lng: -82 }; // default location
 	var mapPicker;
-	var graphDimensions = { width: 1600*0.75, height: 900*0.6, easementTimeAxis: 20, gapTimeAxis: 3 };
+	var graphDimensions = { width: 1600*0.75, height: 900*0.6, easementTimeAxis: 20, gapTimeAxis: 3, gapWxGridline: 10 };
 	var daysOfWeek = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 	var metFormat = d3.format(".2r");
 	var elementChoices = {
@@ -110,11 +114,13 @@
 		var allValidPeriods = f.wx[e].values.map(i => ParsePeriod(i.validTime));
 		// elementValues is the list of meteorological values only.
 		var elementValues = f.wx[e].values.map(i => i.value);
-		var ScaleBarHeight;
+		var ScaleBarHeight,ScaleWxAxis;
 		if (e == 'probabilityOfPrecipitation' || e == 'skyCover') { // always 0 to 100%
 			ScaleBarHeight = d3.scaleLinear().domain([0,100]).range([1,graphDimensions.height]);
+			ScaleWxAxis = d3.scaleLinear().domain([0,100]).range([graphDimensions.height,1]);
 		} else {
 			ScaleBarHeight = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([1,graphDimensions.height]);
+			ScaleWxAxis = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([graphDimensions.height,1]);
 		}
 		var ScaleClickValue = function(v) {
 			if (ScaleBarHeight(v) < 21)
@@ -139,6 +145,12 @@
 		graph.append("g")
 			.attr("class", "xAxis")
 			.attr("transform", "translate(0," + (graphDimensions.height + graphDimensions.gapTimeAxis) + ")");
+		/*graph.append("g")
+			.attr("class", "yAxis")
+			.attr("transform", "translate(0," + graphDimensions.gapWxGridline + ")");*/
+		graph.append("g")
+			.attr("class", "wxGridline")
+			.attr("transform", "translate(" + graphDimensions.gapWxGridline + ",0)");
 		d3.select("#imageContainer").attr("style", "width: " + graphDimensions.width + "px");
 		var bars = graph.selectAll("polygon")
 			.data(f.wx[e].values)
@@ -166,6 +178,7 @@
 											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
 											.text(metFormat(d.value)); });
 		var timeAxis = d3.axisBottom(ScaleBarWidth).tickPadding(1);
+		var wxAxis = d3.axisLeft(ScaleWxAxis).ticks(5);
 		//var timeAxis = d3.axisBottom(ScaleBarWidth).tickFormat(d3.timeFormat("%a")).tickPadding(1);
 		d3.selectAll("g.xAxis")
 			.call(timeAxis)
@@ -173,6 +186,13 @@
 			.attr("y", 3)
 			.attr("x", 3)
 			.style("text-anchor","start");
+		d3.selectAll("g.wxGridline")
+			.call(wxAxis.tickSize(-(graphDimensions.width - graphDimensions.gapWxGridline * 2)))
+			.selectAll("text")
+			.attr("y", -8)
+			.attr("x", 3)
+			.style("text-anchor","start");
+		d3.selectAll("g.wxGridline path").remove(); // remove the axis line, and the ticks at the bounds of the data range
 	}
 	function ForecastForLatLon(lat,lon,e) {
 		var fcst = {};
