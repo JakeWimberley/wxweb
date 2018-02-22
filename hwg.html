@@ -142,6 +142,10 @@
 	function ClearClicks() {
 		d3.selectAll(".clickedValue").remove();
 	}
+	function FailBlog(why) {
+		$("#placeName").text("Failed " + why + " request...please try again later");
+		$("#elementName").text(" :-(");
+	}
 	function DrawForecast(f,e,tr) {
 		//console.log('drawing forecast of element ' + e + ' for ' + f.locationName);
 		/*
@@ -236,6 +240,8 @@
 	}
 	function ForecastForLatLon(lat,lon,e) {
 		var fcst = {};
+		$("#placeName").text("Loading...");
+		$("#elementName").text("");
 		$.getJSON(
 			'https://api.weather.gov/points/' + lat + ',' + lon,
 			function(response) {
@@ -243,10 +249,13 @@
 				$.getJSON( // guess this is async and prone to race condition, but it seems to work
 					fcst.officeMetadataUrl,
 					function(r) {
+						if (!('name' in r)) {
+							console.log("failed metadata request");
+						}
 						fcst.officeName = r.name.replace(/\s*NWS\s*/,''); // ILM value is "NWS Wilmington, NC"
 						fcst.website = r.sameAs.replace(/https?:\/\//,'');
 					}
-				);
+				).fail(function() { FailBlog('metadata'); });
 				fcst.gridpointUrl = response.properties.forecastGridData;
 				$.getJSON(
 					fcst.gridpointUrl,
@@ -260,9 +269,9 @@
 						fcst.locationName = response.properties.relativeLocation.properties.city + ', ' + response.properties.relativeLocation.properties.state;
 						DrawForecastForQuery();
 					}
-				);
+				).fail(function() { FailBlog('forecast'); });
 			}
-		);
+		).fail(function() { FailBlog('lat-lon'); });
 		return fcst;
 	}
 	// convenience functions
