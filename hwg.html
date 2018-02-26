@@ -5,6 +5,16 @@
 	<link href="https://fonts.googleapis.com/css?family=Kanit" rel="stylesheet">
 	<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/leaflet.css" rel="stylesheet">
 	<style>
+	.bg {
+		background-color: lightskyblue;
+	}
+	.fg1 {
+		color: black;
+	}
+	.fg2 {
+		fill: linen;
+		color: linen;
+	}
 	#controlContainer {
 		margin-bottom: 20px;
 	}
@@ -16,11 +26,9 @@
 	#queries {
 		float: right;
 	}
-	#graph, #topTitle, #bottomTitle {
-		background-color: lightskyblue;
+	#graph, #topTitle, #bottomTitle { /* bg */
 	}
-	#topTitle, #bottomTitle {
-		color: linen;
+	#topTitle, #bottomTitle { /* fg1 */
 		font-family: 'Kanit', sans-serif;
 		padding: 5px;
 	}
@@ -40,27 +48,22 @@
 	#officeWebsite {
 		font-style: italic;
 	}
-	#graph polygon {
-		fill: linen;
-	}
 	#graph text {
 		font-family: 'Kanit', sans-serif;
 	}
-	.clickedValue {
-		fill: red;
+	.clickedValue { /* fg1 */
 		font-size: 20px;
 		text-anchor: middle;
 	}
-	.xAxis line, .xAxis path, .wxGridline line {
-		stroke: linen;
+	.xAxis line, .xAxis path, .wxGridline line { /* fg1 */
 	}
-	.xAxis text {
-		fill: linen;
+	.xAxis text { /* fg1 */
+		stroke: none;
 		font-size: 12px;
 		text-anchor: end;
 	}
-	.wxGridline text {
-		fill: linen;
+	.wxGridline text { /* fg1 */
+		stroke: none;
 		font-size: 12px;
 	}
 	.sameWidthAsGraph {
@@ -180,10 +183,10 @@
 		var elementValues = fWeather.map(i => elementChoices[e]["convert"](i.value));
 		var ScaleBarHeight,ScaleWxAxis;
 		if (e == 'probabilityOfPrecipitation' || e == 'skyCover') { // always 0 to 100%
-			ScaleBarHeight = d3.scaleLinear().domain([0,100]).range([1,graphDimensions.height]);
+			ScaleBarHeight = d3.scaleLinear().domain([0,100]).range([5,graphDimensions.height]);
 			ScaleWxAxis = d3.scaleLinear().domain([0,100]).range([graphDimensions.height,1]);
 		} else {
-			ScaleBarHeight = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([1,graphDimensions.height]);
+			ScaleBarHeight = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([5,graphDimensions.height]);
 			ScaleWxAxis = d3.scaleLinear().domain([d3.min(elementValues), d3.max(elementValues)]).range([graphDimensions.height,1]);
 		}
 		var ScaleClickValue = function(v) {
@@ -207,13 +210,15 @@
 			.attr("width", graphDimensions.width)
 			.attr("height", graphDimensions.height + graphDimensions.easementTimeAxis);
 		graph.append("g")
-			.attr("class", "xAxis")
+			.attr("class", "xAxis fg1")
 			.attr("transform", "translate(0," + (graphDimensions.height + graphDimensions.gapTimeAxis) + ")");
 		graph.append("g")
-			.attr("class", "wxGridline")
+			.attr("class", "wxGridline fg1")
 			.attr("transform", "translate(" + graphDimensions.gapWxGridline + ",0)");
 		d3.select("#imageContainer").attr("style", "width: " + graphDimensions.width + "px");
+		graph.selectAll("polygon").remove(); // HACK so gridlines won't draw on top after bars.update()
 		var bars = graph.selectAll("polygon")
+			.attr("class", "fg2")
 			.data(elementValues)
 			.attr("points", function(d,i) { var attr = ScaleBarWidth(allValidPeriods[i][0]) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + graphDimensions.height + ' '
@@ -221,25 +226,26 @@
 									 + ScaleBarWidth(allValidPeriods[i][0]) + ',' + (graphDimensions.height - ScaleBarHeight(d)); 
 								return attr; } )
 			.on("click", function(d,i) { graph.append("text")
-											.attr("class", "clickedValue")
+											.attr("class", "clickedValue fg1")
 											.attr("y", ScaleClickValue(d))
 											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
 											.text(metFormat(d)); });
 		bars.exit().remove();
 		bars.enter().append("polygon")
+			.attr("class", "fg2")
 			.attr("points", function(d,i) { var attr = ScaleBarWidth(allValidPeriods[i][0]) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + graphDimensions.height + ' '
 									 + (ScaleBarWidth(allValidPeriods[i][1]) - 1) + ',' + (graphDimensions.height - ScaleBarHeight(d)) + ' '
 									 + ScaleBarWidth(allValidPeriods[i][0]) + ',' + (graphDimensions.height - ScaleBarHeight(d)); 
 								return attr; } )
 			.on("click", function(d,i) { graph.append("text")
-											.attr("class", "clickedValue")
+											.attr("class", "clickedValue fg1")
 											.attr("y", ScaleClickValue(d))											
 											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
 											.text(metFormat(d)); });
 		var timeAxis = d3.axisBottom(ScaleBarWidth).tickPadding(1);
-		var wxAxis = d3.axisLeft(ScaleWxAxis).ticks(5);
 		//var timeAxis = d3.axisBottom(ScaleBarWidth).tickFormat(d3.timeFormat("%a")).tickPadding(1);
+		var wxAxis = d3.axisLeft(ScaleWxAxis).ticks(5);
 		d3.selectAll("g.xAxis")
 			.call(timeAxis)
 			.selectAll("text")
@@ -311,8 +317,8 @@ If you don't like the city name, click it and you can type in a better one.
 </div>
 </div>
 <div id="imageContainer">
-<p id="topTitle" class="sameWidthAsGraph"><span id="placeName" contenteditable="true">Click a location on the map first, </span><span id="elementName">then choose a wx element</span><br><span id="timeRangeDesc">and a time range</span></p>
-<svg id="graph"></svg><p id="bottomTitle" class="sameWidthAsGraph">National Weather Service &#x25B8; <span id="officeName">Local Forecast Office</span> &#x25B8; <span id="officeWebsite">[URL]</span></p>
+<p id="topTitle" class="bg fg1 sameWidthAsGraph"><span id="placeName" contenteditable="true">Click a location on the map first, </span><span id="elementName">then choose a wx element</span><br><span id="timeRangeDesc">and a time range</span></p>
+<svg id="graph" class="bg"></svg><p id="bottomTitle" class="bg fg1 sameWidthAsGraph">National Weather Service &#x25B8; <span id="officeName">Local Forecast Office</span> &#x25B8; <span id="officeWebsite">[URL]</span></p>
 </div>
 <p id="footer">A Jake Wimberley Production. <a id="gridpointUrl" href="#">Huh?</a></p>
 
