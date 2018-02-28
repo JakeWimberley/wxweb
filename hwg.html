@@ -6,19 +6,19 @@
 	<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/leaflet.css" rel="stylesheet">
 	<style>
 	.bg {
-		background-color: gray;
+		background-color: black;
 	}
 	text.fg1 {
-		fill: orange;
+		fill: white;
 		stroke: none;
 	}
 	.fg1 {
-		color: orange;
-		stroke: orange;
+		color: white;
+		stroke: white;
 	}
 	.fg2 {
-		fill: silver;
-		color: silver;
+		fill: crimson;
+		color: crimson;
 	}
 	#controlContainer {
 		margin-bottom: 20px;
@@ -27,6 +27,10 @@
 		height: 270px;
 		width: 480px;
 		display: inline-block;
+	}
+	#llReadout {
+		background-color: red;
+		color: white;
 	}
 	#queries {
 		float: right;
@@ -87,7 +91,7 @@
 	var currentFcst = {};
 	var currentLL = {};
 	currentLL.latlng = { lat: 35, lng: -82 }; // default location
-	var mapPicker;
+	var mapPicker, readout;
 	var graphDimensions = {
 		width: 1600*0.75,
 		height: 900*0.6,
@@ -99,6 +103,7 @@
 	};
 	var daysOfWeek = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 	var metFormat = d3.format(".2r");
+	var llFormat = d3.format("6.4f");
 	var elementChoices = {
 		'temperature': {
 			displayName: 'Temperature',
@@ -320,6 +325,7 @@
 <p style="font-weight: bold; color: purple"><span style="font-size: 28px; color: black">Hourly Weather Grapher</span> <i>does not work in Internet Explorer</i></p>
 <div id="controlContainer">
 <div id="llPicker"></div>
+<span id="llReadout"></span>
 <div id="queries">Plot <select id="queryElement"></select> from <select id="queryStartTime"></select> through <select id="queryEndTime"></select><br>
 Click on any bar in the graph to plot its value. <button onclick="ClearClicks()">Clear plotted values</button><br>
 If you don't like the city name, click it and you can type in a better one.
@@ -332,13 +338,17 @@ If you don't like the city name, click it and you can type in a better one.
 <p id="footer">A Jake Wimberley Production. <a id="gridpointUrl" href="#">Huh?</a></p>
 
 <script>
-function getLLFromClick(e) {
+function GetLLFromClick(e) {
 	//console.log('click at ' + e.latlng);
 	currentLL.latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
 	if (currentLL.marker) currentLL.marker.remove();
 	currentLL.marker = L.marker(currentLL.latlng).addTo(mapPicker);
 	$("#queryElement").val("temperature");
 	currentFcst = ForecastForCurrentLL();
+}
+function UpdateLLReadout(e) {
+	try { $("#llReadout").text('The mouse position is ' + llFormat(e.latlng.lat) + ', ' + llFormat(e.latlng.lng)); }
+	catch (err) { $("#llReadout").text(""); }
 }
 
 $(function() {
@@ -355,7 +365,9 @@ $(function() {
 		attribution: 'opentopomap.org, CC-BY-SA',
 		maxZoom: 13,
 	}).addTo(mapPicker);
-	mapPicker.on('click', getLLFromClick);
+	mapPicker.on('click', GetLLFromClick);
+	mapPicker.on('mousemove', UpdateLLReadout);
+	mapPicker.on('mouseout', function(e) { UpdateLLReadout(); });
 	$.each(elementChoices, function(e) { qE.append($("<option />").val(e).text(elementChoices[e]["displayName"])); });
 	// populate time selections by calculating offsets from fcstStart
 	$.each(periodList,
