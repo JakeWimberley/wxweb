@@ -44,6 +44,7 @@
 	#bottomTitle { /* workaround for mysterious gap below SVG */
 		position: relative;
 		top: -5px;
+		font-size: 18px;
 	}
 	#placeName {
 		font-size: 36px;
@@ -69,12 +70,12 @@
 	}
 	.xAxis text { /* fg1 */
 		stroke: none;
-		font-size: 12px;
+		font-size: 16px;
 		text-anchor: end;
 	}
 	.wxGridline text { /* fg1 */
 		stroke: none;
-		font-size: 12px;
+		font-size: 16px;
 	}
 	.sameWidthAsGraph {
 		margin: 0px;
@@ -98,11 +99,11 @@
 		easementTimeAxis: 20,
 		gapTimeAxis: 3,
 		gapWxGridline: 10,
-		gapLeft: 30,
+		gapLeft: 40,
 		gapRight: 20
 	};
 	var daysOfWeek = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-	var metFormat = d3.format(".2r");
+	var metFormat = d3.format("2.0f");
 	var llFormat = d3.format("6.4f");
 	var elementChoices = {
 		'temperature': {
@@ -138,14 +139,14 @@
 		'windSpeed': {
 			displayName: 'Wind Speed',
 			rawUnit: 'm/s',
-			displayUnit: 'kt',
-			convert: function(c) { return(c * 1.944); }
+			displayUnit: 'mph',
+			convert: function(c) { return(c * 2.237); }
 		},
 		'windGust': {
 			displayName: 'Wind Gust',
 			rawUnit: 'm/s',
-			displayUnit: 'kt',
-			convert: function(c) { return(c * 1.944); }
+			displayUnit: 'mph',
+			convert: function(c) { return(c * 2.237); }
 		},
 		'probabilityOfPrecipitation': {
 			displayName: 'Chance of Precipitation',
@@ -167,6 +168,18 @@
 	function FailBlog(why) {
 		$("#placeName").text("Failed " + why + " request...please try again later");
 		$("#elementName").text(" :-(");
+	}
+	function TimeLabel(d) {
+		var s = d3.timeFormat('%a %I%p')(d); // e.g. "Fri 09AM"
+		// replace AM with 'a' and PM with 'p'
+		s = s.replace(/([AP])M/,function(match,p1) {
+			return p1.toLowerCase();
+		});
+		// lob last letter off 3-letter day abbrev
+		s = s.replace(/([A-Z][a-z])[a-z]/,'$1');
+		// remove leading zero from hour
+		s = s.replace(/0([0-9])/,'$1');
+		return s;
 	}
 	function DrawForecast(f,e,tr) {
 		/*
@@ -255,7 +268,7 @@
 											.attr("y", ScaleClickValue(d))											
 											.attr("x", ScaleBarWidth(d3.mean(allValidPeriods[i])))
 											.text(metFormat(d)); });
-		var timeAxis = d3.axisBottom(ScaleBarWidth).tickPadding(1);
+		var timeAxis = d3.axisBottom(ScaleBarWidth).tickPadding(1).tickSize(18).tickFormat(TimeLabel);
 		//var timeAxis = d3.axisBottom(ScaleBarWidth).tickFormat(d3.timeFormat("%a")).tickPadding(1);
 		var wxAxis = d3.axisLeft(ScaleWxAxis).ticks(5);
 		d3.selectAll("g.xAxis")
