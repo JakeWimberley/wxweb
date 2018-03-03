@@ -21,6 +21,13 @@
 		width: auto !important;
 		padding: 0px 6px 6px 6px;
 	}
+	.rickshaw_graph svg text {
+		font-size: 20px;
+	}
+	.footer {
+		font-size: 12px;
+		font-style: italic;
+	}
 	</style>
 	<script src="api-stations.js"></script>
 	<script src="https://code.jquery.com/jquery-3.3.1.js"></script>
@@ -60,6 +67,7 @@
 				{ x: moment(candidateObs[i+1].properties.timestamp).unix(), y: CtoF(dewpointSet[0][i+1]) }
 			);
 		}	
+		$("#crossover").text('timeseries ready for ' + stationID);
 	}
 	function MakeChart(stationID) {
 		$("div#chart").html('');
@@ -75,7 +83,7 @@
 			padding: { top: 0.05, bottom: 0.05 },
 			series: [
 				{
-					name: 'T',
+					name: 'Temp (' + stationID + ')',
 					color: 'red',
 					data: obFeatures[stationID].map(
 						function(i) {
@@ -86,7 +94,7 @@
 					renderer: 'line',
 				},
 				{
-					name: 'Td',
+					name: 'Dewpt (' + stationID + ')',
 					color: 'green',
 					data: obFeatures[stationID].map(
 						function(i) {
@@ -97,7 +105,7 @@
 					renderer: 'line',
 				},
 				{
-					name: 'Crossover candidates',
+					name: 'Psbl crossover',
 					color: 'blue',
 					data: crossovers[stationID],
 					renderer: 'scatterplot',
@@ -116,6 +124,12 @@
 		var hoverDetail = new Rickshaw.Graph.HoverDetail({
 			graph: g
 		});
+		d3.select(".rickshaw_graph svg")
+			.append("g")
+			.append("text")
+			.attr("dx",40)
+			.attr("dy",30)
+			.text(stationID);
 	}
 	function Run(stationID) {
 		console.log('Running for ' + stationID);
@@ -139,7 +153,10 @@
 					);
 				ProcessTimeseries(stationID);						
 			}
-		).then(function() { retval = d3.format(".0f")(crossovers[stationID][0].y); });
+		).then(function() { 
+			try { retval = d3.format(".0f")(crossovers[stationID][0].y); }
+			catch (err) { retval = 'No crossover temp available.'; }
+		});
 		return retval;
 	}
 	function LoadStations(e) {
@@ -238,7 +255,7 @@
 			var s = $("#station").val();
 			if (RegExp(/^[KPTC]\w{3}$/).test(s)) Run(s);
 			try { $("#crossover").text('crossover temp is ' + d3.format(".0f")(crossovers[stationID][0].y)); }
-			catch(err) { $("#crossover").text('algorithm failed...bummer'); }
+			catch(err) { }
 		});
 		$("#makeChart").click( function() {
 			var s = $("#station").val();
@@ -257,13 +274,29 @@
 </script>
 </head>
 <body>
+<h2>Crossover temperatures</h2>
 <div id="schmap"></div>
 <div id="chart"></div>
-<div id="controls">
+<div id="controls" style="display: none;">
 <input type="text" id="station"></input>
 <button id="calcCrossover">Calc crossover</button>
 <button id="makeChart">Make chart</button>
 <p id="crossover"></p>
 </div>
+
+<p>The crossover temperature is applied as part of the "UPS Fog Technique."
+From <a href="https://www.weather.gov/media/wrh/online_publications/talite/talite0820.pdf">Whitworth
+and Collins</a>, it is defined as "the minimum dew point observed during the
+warmest part of the afternoon."</p>
+
+<p>Use this page in the late afternoon and night hours to check crossover
+temperatures. Every time you move the map, new temp and dewpoint data are
+downloaded for the known obs sites within the map rectangle.  Click a value to
+view the data trends over time. The algorithm-derived crossover temperatures
+are plotted as dots on the dewpoint trace.  Sometimes the algorithm cannot
+determine a crossover temp. In this case 'NA' will be plotted, but you still
+can click to see the trends.</p>
+
+<p class="footer">Ja-Ko Industries: Part of the Jake Wimberley Group</p>
 </body>
 </html>
