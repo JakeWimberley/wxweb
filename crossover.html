@@ -85,9 +85,13 @@
 				{
 					name: 'Temp (' + stationID + ')',
 					color: 'red',
-					data: obFeatures[stationID].map(
+					data: obFeatures[stationID].filter(
+						function(i) { return i.properties.temperature.value !== null; }
+					).map(
 						function(i) {
 							//console.log(i.properties.temperature.value, i.properties.timestamp);
+							var yVal;
+							//if (i.properties.temperature.value !== null)
 							return { x: moment(i.properties.timestamp).unix(), y: CtoF(i.properties.temperature.value) };
 						}
 					),
@@ -96,7 +100,9 @@
 				{
 					name: 'Dewpt (' + stationID + ')',
 					color: 'green',
-					data: obFeatures[stationID].map(
+					data: obFeatures[stationID].filter(
+						function(i) { return i.properties.dewpoint.value !== null; }
+					).map(
 						function(i) {
 							//console.log(i.properties.temperature.value, i.properties.timestamp);
 							return { x: moment(i.properties.timestamp).unix(), y: CtoF(i.properties.dewpoint.value) };
@@ -274,7 +280,8 @@
 </script>
 </head>
 <body>
-<h2>Crossover temperatures</h2>
+<p style="font-weight: bold; color: purple"><span style="font-size: 28px; color: black">Crossover temperature tool</span><span style="padding-left: 30px; font-style: italic">Warranty void if viewed in Internet Explorer</span></p>
+
 <div id="schmap"></div>
 <div id="chart"></div>
 <div id="controls" style="display: none;">
@@ -285,17 +292,22 @@
 </div>
 
 <p>The crossover temperature is applied as part of the "UPS Fog Technique."
-From <a href="https://www.weather.gov/media/wrh/online_publications/talite/talite0820.pdf">Whitworth
+From <a
+href="https://www.weather.gov/media/wrh/online_publications/talite/talite0820.pdf">Whitworth
 and Collins</a>, it is defined as "the minimum dew point observed during the
-warmest part of the afternoon."</p>
+warmest part of the afternoon." Other sources describe it as the lowest
+dewpoint obtained through afternoon mixing. Per the technique, radiation fog
+becomes possible when the nightly min temp is at or below
+the crossover temp from the previous afternoon.</p>
 
 <p>Use this page in the late afternoon and night hours to check crossover
 temperatures. Every time you move the map, new temp and dewpoint data are
-downloaded for the known obs sites within the map rectangle.  Click a value to
-view the data trends over time. The algorithm-derived crossover temperatures
-are plotted as dots on the dewpoint trace.  Sometimes the algorithm cannot
-determine a crossover temp. In this case 'NA' will be plotted, but you still
-can click to see the trends.</p>
+downloaded for the known obs sites within the map rectangle, and an algorithm
+is used to guess the crossover temperature, which is shown on the map.  Click a
+value to view a graph of the input data. The algorithm's guesses are plotted as
+dots on the dewpoint trace. Sometimes it cannot determine a crossover temp. In
+this case 'NA' will be plotted, but you still can click to see the trends. Note
+you can also mouse over the graph to sample the values.</p>
 
 <p class="footer">Ja-Ko Industries: Part of the Jake Wimberley Group</p>
 </body>
