@@ -100,6 +100,16 @@ body {
 .prob {
 	fill: url(#hatch)
 }
+.xAxis {
+	color: black;
+}
+.dashed-ticks {
+	stroke-dasharray: 6;
+}
+.time-ticks {
+	text-anchor: start;
+	font-size: 13px;
+}
 div#help {
 	position: fixed;
 	font: 18px sans-serif;
@@ -243,6 +253,10 @@ var svg = d3.select("#chart")
 svg
 	.on('mouseover',function(evt) { d3.select('#readout').attr("hidden",null); })
 	.on('mouseout',function(evt) { d3.select('#readout').attr("hidden",true); });
+var svgTimeAxis = svg.append("g")
+	.attr("class", "xAxis")
+	.attr("transform",
+		  "translate(" + (margin.left + tafGroupMargin / 2.) + "," + height + ")");
 var svgBandG = svg.append("g");
 var svgTafG = svg.append("g")
     .attr("transform",
@@ -477,13 +491,30 @@ function score(wx,rules,tellIfSplit=false) {
 function draw() {
 	var issuanceTimeStr = d3.select("#issuanceChoices").node().value;
 	var rulesetName = d3.select("#ruleChoices").node().value;
-	//console.log(issuanceTimeStr + ', ' + rulesetName);
-	
 	var taf = tafObjArray.filter(i => i.issue[0] == issuanceTimeStr)[0];
+	
 	// set the x range to TAF valid period
 	var x = d3.scaleTime()
 		.domain([new Date(taf.valid_time[0]), new Date(taf.valid_time[1])])
 		.range([0, width]);
+		
+	// blank out time axis
+	d3.select("g.xAxis").html('');
+	var timeAxis = d3.axisTop(x)
+		.ticks(d3.timeHour.every(3))
+		.tickPadding(1)
+		.tickSize(height)
+		.tickFormat(function(d) { return d3.utcFormat('%d/%Hz')(d); });
+	d3.selectAll("g.xAxis")
+		.call(timeAxis)
+		.selectAll("text")
+		.attr("y", -2)
+		.attr("x", 3)
+		//.style("text-anchor","start")
+		.attr('class','time-ticks')
+	d3.selectAll('#chart .domain').remove();
+	d3.selectAll('#chart .tick').attr('class','dashed-ticks');
+
 	var rules = rulesets.filter(i => i.name == rulesetName)[0];
 	// set y range based on rules
 	var y = d3.scaleLinear()
