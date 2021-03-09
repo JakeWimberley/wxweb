@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+  font-family: sans-serif;
+  width: 1200px;
+}
+#tafBulletin {
+  float: right;
+  max-width: 800px;
+}
+.footer a {
+  text-decoration: none;
+  color: yellow;
+}
+.heading, .footer {
+  background-color: gray;
+  color: white;
+  padding: 5px;
+}
+.footer {
+  font-size: 11px;
+}
+.title {
+  font-size: 30px;
+  font-weight: bold;
+}
+.subtitle {
+  font-style: italic;
+  font-size: 16px;
+  position: relative;
+  top: -4px;
+  left: 10px;
+}
+#readout {
+  width: 1200px;
+}
+#readout, #readout td, #readout th {
+  border: 1px solid black;
+  border-collapse: collapse;
+  padding: 4px;
+  text-align: left;
+  
+}
+#readoutWx {
+  font-family: monospace;
+  width: 900px;
+}
+.metarThing {
+  fill: white;
+  stroke-width: 1px;
+  stroke: black;
+}
+.tafGroup {
+  fill: pink;
+  stroke-width: 2px;
+  stroke: black;
+}
+.catBands {
+  filter: contrast(0.4); /* firefox only */
+}
+.catTextSmall {
+  font-size: 80%;
+}
+.catText, .catTextSmall {
+  font-family: sans-serif;
+  fill: black;
+}
+.vlifr {
+  fill: #ff00ff;
+}
+.lifr {
+  fill: #8c6258;
+}
+.ifr1 {
+  fill: #f00;
+}
+.ifr2 {
+  fill: #ff0;
+}
+.mvfr1 {
+  fill: #505fff;
+}
+.mvfr2 {
+  fill: #6293ec;
+}
+.vfr1 {
+  fill: #15ae01;
+}
+.vfr2 {
+  fill: #084200;
+}
+.vfr3 {
+  fill: #9F9;
+}
+.tempo {
+	fill: url(#checkerboard)
+}
+.prob {
+	fill: url(#hatch)
+}
+.xAxis {
+	color: black;
+}
+.dashed-ticks {
+	stroke-dasharray: 6;
+}
+.time-ticks {
+	text-anchor: start;
+	font-size: 13px;
+}
+div#help {
+	position: fixed;
+	font: 18px sans-serif;
+	color: black;
+	top: 100px;
+	left: 100px;
+	width: 800px;
+	background: orchid;
+	padding: 5px;
+	z-index: 1;
+	display: none;
+}
+#helpButton {
+	margin-left: 30px;
+}
+</style>
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.js"></script>
+<script src="https://d3js.org/d3.v5.js"></script>
+<div id="help" onclick="javascript:document.getElementById('help').style.display = 'none';" hidden>
+EpiTAF generates graphs of TAFs and the observations from the forecast period. The X axis is time (early to late, left to right) and the Y axis is the categorized weather, using the chosen scheme.
+The default scheme is flight category. You can choose a different TAF issuance time, or change the categorization rule set, and the graph will regenerate.
+<ul>
+<li>It allows the selection of TAFs issued between <b>18 and 42 hours prior to the current time.</b> The 18-hour limit is to ensure sufficient overlap between the forecast and obs.</li>
+<li>Prevailing TAF groups are plotted as colored boxes representing the flight category (or other categorization scheme selected). METARs plot in smaller, white boxes.</li>
+<li>TEMPO groups are plotted with a checkered background; PROB groups are hatched with diagonal lines.
+They plot at half the height of prevailing groups, since they overlap in time.</li>
+<li>You can hover your mouse over the plotted elements and it will print the relevant details at the bottom.</li>
+<li>A rudimentary scoring algorithm tries to come up with POD, FAR, CSI for each TAF. <b>Please note this algorithm is experimental</b>
+and is not comparable to the NWS Performance Management scoring algorithm.
+In particular EpiTAF weights the restrictive categories so they have a much bigger impact on the final scores. Each category is assigned a certain number of points per minute,
+and if the category of METAR and TAF differ in a given minute, that minute's points are binned as either missed events or false alarms.</li>
+<li>One METAR could potentially impact two or more TAF groups. When the valid period of a METAR overlaps with the end of a group, only the portion of the ob period that falls within that group
+will count toward its verification. The side effect is that when a METAR that doesn't fall completely within a TAF period, its Point Value will be printed as "Ambiguous."
+This limitation does not affect the statistics.</li>
+</ul>
+Click anywhere in this box to close Help.
+</div>
+<p class="heading"><span class="title">EpiTAF ☠️⚰️👻</span><span class="subtitle">A tool for TAF postmortems</span></p>
+<pre id="tafBulletin">Use Firefox or Chrome. Don't use Edge!</pre>
+<p>
+      <label for="sid">Airport ICAO ID <i>(e.g. KJFK)</i></label>
+      <span style="padding-left: 20px">
+      <input type="text" id="sid" size="5" maxlength="4">
+      </span>
+	  <button id="go">Go</button>
+	  <button id="helpButton">Help!</button>
+</p>
+<p id="options" hidden>
+<select id="issuanceChoices">
+</select>
+<select id="ruleChoices">
+</select><br>
+<p>
+<span id="pointReadout"></span><br>
+<span id="scoreIndexReadout"></span><br>
+</p>
+<svg id="chart">
+<g id="logo" transform="scale(2 2)">
+<path d="m106.59 31.439a42.333 42.333 0 0 0-42.333 42.333v137.58h84.667v-137.58a42.333 42.333 0 0 0-42.333-42.333z" fill="#b3b3b3"/>
+<path d="m65.425 210.45c-4.8861-1.527-6.2472 2.046-10.092 2.7236-2.9246 1.9677-5.6069 3.7343-9.4799 5.1169-5.1323 1.5002-4.2408 5.8134-4.5003 9.5903-0.09091 1.9951-3.4227 5.322-5.124 5.0622-1.7041 2.4076-6.9743 2.8409-8.9838 4.7427-1.9608 0.81809-5.0055 2.2818-6.8232 4.0854-2.635 1.3628-3.551 4.3611-4.1627 6.2642 0.66048 2.7237 0.43787 5.6331 2.2052 8.1764 2.6672 3.2576 5.9798 5.8711 10.469 7.6203 5.9993 0.19151 9.4287 1.4171 14.424 2.504 8.003 0.52742 15.929 0.075 23.908 0.21958 5.3672-0.16298 10.976 0.35582 16.163-0.26553 3.5111-0.90859 7.3833-0.87309 11.331-0.8239 10.674-0.084 21.448 0.17934 32.05-0.15549 3.8862-2.4023 6.2308-4.2183 11.981-4.2459 6.5699 0.0868 13.116 0.0252 19.674 0.0437 2.8154 0.64069 6.4141 1.4581 10.046 1.0894 3.4773 0.0487 6.7938 0.10094 9.6548-0.82415 5.1595-0.55534 8.2526-3.107 11.726-6.2571 1.7276-2.4935 4.5184-1.3794 4.536-4.4616 0.18475-3.1784-2.8071-7.6187-2.7804-8.4173-3.326-3.0251-7.8839-6.6526-10.574-8.9224-2.6597-2.2444-7.3629-4.1263-10.65-6.5238-3.8098-1.0915-4.9388-3.3706-8.6394-5.9918-1.7162-2.8997-4.7043-4.9044-6.6661-7.626-3.5101-1.4882-2.6401-0.41962-6.196-2.1788 2.7188-0.97391-3.1617-0.38547-5.0534-0.54475h-78.444z" fill="#c87137"/>
+<path d="m65.012 210.6c-0.51681-1.0676-1.1874-2.073-1.5564-3.2046 0.14432-0.76347 0.18771-1.588-0.63976-1.9761 0.0062-0.73651-0.26179-1.4338-1.0155-1.8079-0.84971-0.50777-0.86539-1.6171-1.5097-2.2785-0.79515-0.43285-1.0293-1.6403-0.4723-2.3249 0.01381-0.86787-0.86103-1.4542-0.85924-2.3 0.26944-0.83636-1.1946-1.0094-0.70411-1.9086-0.33455-0.44907-1.3029-0.11839-0.40969 0.24864 0.89252 0.56719 2.0859 0.95935 2.4183 2.0828 0.30431 0.73676 0.40021 1.6384 1.043 2.1764 0.73813-0.27813 1.6501 0.36321 1.4433 1.195-0.01074 0.27214-0.0039 0.86336-0.0058 0.97735 0.0026-3.2594-0.0039-6.5195 0-9.7784 0.84748-0.4653 1.46 0.73972 1.8406 1.3381 0.86042 1.4858 0.87891 3.2433 1.1964 4.8846 0.15877 1.9454 1.2499 3.651 1.5762 5.5551-0.47714 0.63787-0.32578 1.5112 0.12505 2.2226 0.59229 1.0975 0.79638-0.40754 0.68575-0.93871-0.22109-1.9205-0.10252-3.8559-0.13237-5.7847 0.06081-0.95427-0.24421-1.9324 0.04696-2.8626 0.35158-0.38581 0.8811-0.61481 0.70899-1.2219-0.0023-0.34151 0.0049-0.68321-0.0041-1.0246-0.17143 1.1286 0.10484 2.2421 0.45732 3.3078 0.6952 2.1483 0.23111 4.4126 0.30268 6.6196-0.48986 0.97759 1.122 1.1697 0.72426 2.0864 0.0041 0.50425 0.61904 0.99738 0.79793 1.0557-0.01342 1.2551-0.01974 2.512 4.9e-5 3.7664 0.33041 0.43364-0.22326 0.97373-0.07678 0.24509 0.29218-0.5478-0.41073-0.29361-0.71666-0.34992h-5.2645z" fill="#008000"/>
+<path d="m138.84 210.6c0.1447-1.4612-1.3936-2.3962-2.0865-3.5377-1.048-1.5764-2.2232-3.0796-3.5831-4.3998-0.73295-1.1352-1.9266-1.7985-2.4568-2.9293-0.54199-0.88421-1.363-1.8918-1.9641-2.6515 0.37507-0.40149-1.0425-0.79902 0.22513-0.60115 1.604 0.38461 2.717 1.7823 4.262 2.2786 1.1088 1.2643 2.5206 2.2142 3.6279 3.4717 0.53257 0.88729 1.4995 2 1.5976 2.6765 0.18687-1.7087-0.759-3.4463-1.1089-5.1537-0.32873-2.5014-1.7585-4.71-2.0134-7.2242-0.28318-1.5605-0.9124-3.0313-1.2292-4.5819 0.18169-1.3098-0.36621-2.8081-0.18421-3.9948 0.64672 2.3372 1.3548 4.6648 2.3614 6.8783 0.75687 1.5298 0.69875 3.2911 1.3964 4.8455 0.95468 2.3629 1.433 4.8704 2.1717 7.2996 0.0351 0.71994 0.27473 1.8707 0.30711 2.2494 1e-4 -4.5078-1.3e-4 -9.0174 0-13.524 0.46573-1.8605 0.75197 0.64546 0.75595 1.3229 0.0943 0.46525 0.36394 2.5864 0.39263 2.0425-0.1854-1.8152 0.24221 1.1275 0.31667 1.6157 0.0497 1.6032 0.69122 3.0853 0.69034 4.6625 0.29525 0.40584 0.0219 2.0597 0.11227 0.7507 0.83925-1.3382 0.80858-3.0066 1.7693-4.3006 0.84749-1.9672 1.4515-4.0312 2.0104-6.0938 0.89297-1.2512 1.2474-2.702 1.7741-4.0968 0.65121-0.64189 1.1939-2.9395 1.4166-2.8461-0.81956 3.331-0.47613 6.7756-0.54487 10.17-6e-3 1.8574 0.0673 3.7219-0.1345 5.5706-0.25481-1.0864-0.49273 1.3478-0.45586 1.6891 0.0363 0.30515 0.0196 2.0583 0.0234 0.92115 0.0568-1.5936-0.24703-3.3146 0.58718-4.7548 0.8861-1.0897 1.7842-2.4465 2.8146-3.2517 0.81559-1.0659 0.32112 1.2987-0.32835 1.4168-0.5248 1.2649-0.90685 2.5935-1.4143 3.8713 0.19056 1.2439-0.86568 2.2021-0.71417 3.4054 1e-3 0.81811-1e-3 1.6436 0 2.4568 1.9898 0.0777 4.004-0.39552 5.8082-1.2372 1.3431-0.44437 2.8376-0.59002 4.0192-1.4086 0.79456 0.11033 0.59698-0.79573 0 0-1.7823 1.3236-3.3882 2.8977-5.4136 3.8681-1.178 0.85426-2.5896 1.4339-3.4688 2.5574-0.0743 0.76925-0.74593 0.5455-1.3969 0.56697h-9.9424z" fill="#008000"/>
+<text x="66.884644" y="104.15393" fill="#000000" font-family="sans-serif" font-size="23.13px" letter-spacing="0px" stroke-width=".57826" word-spacing="0px" style="line-height:1.25" xml:space="preserve"><tspan x="66.884644" y="104.15393" stroke-width=".57826">EpiTAF</tspan></text>
+<text x="107.06729" y="139.84552" fill="#000000" font-family="sans-serif" font-size="10.583px" letter-spacing="0px" stroke-width=".26458" text-align="center" text-anchor="middle" word-spacing="0px" style="line-height:1.25" xml:space="preserve"><tspan x="107.06729" y="139.84552" text-align="center">The last word</tspan><tspan x="107.06729" y="153.07469" text-align="center">in aviation</tspan><tspan x="107.06729" y="166.30385" text-align="center">forecast</tspan><tspan x="107.06729" y="179.53302" text-align="center">verification</tspan></text>
+</g>
+</svg>
+<table id="readout" hidden>
+<tr>
+	<th>Time period</th>
+	<th>Point value</th>
+	<th>Weather</th>
+</tr>
+<tr>
+	<td id="readoutTime">&nbsp;</td>
+	<td id="score">&nbsp;</td>
+	<td id="readoutWx">&nbsp;</td>
+</tr>
+</table>
+<p class="footer"><i><big>Imagineered by Jake Wimberley. Powered by <a href="https://d3js.org/">D3</a>.</big></i><br>TAF and METAR data courtesy <a href="http://aviationweather.gov/adds/">Aviation Weather Center</a>, <a href="http://weather.gov">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.</p>
+<script lang="javascript">
+d3.select('#helpButton').on('click', function(e) { document.getElementById('help').style.display = 'block'; });
+var logoShown = true;
+var rulesets = [
+      {
+        'name': 'Flight Categories (Standard US)',
+        'catNames': ['VLIFR','LIFR','IFR','MVFR','VFR'],
+        'classNames': ['vlifr','ifr1','ifr2','mvfr2','vfr3'],
+        'cigMins': [-1,200,500,1000,3100],
+        'visMins': [-1,0.5,1.0,3.0,6.0],
+		'scoring': [30,20,15,7,1],
+      },
+      {
+        'name': 'Flight Categories (DLAC)',
+        'catNames':   ['VLIFR','LIFR','IFR','IFR','MVFR','MVFR','VFR','VFR','VFR'],
+        'classNames': ['vlifr','lifr','ifr1','ifr2','mvfr1','mvfr2','vfr1','vfr2','vfr3'],
+        'cigMins':    [-1,     200,   500,  500,  1000,  2000,  3100, 6500, 12000],
+        'visMins':    [-1,     0.5,   1.0,  2.0,  3.0,   3.0,   6.0,  6.01, 6.01],
+		'scoring': [30,20,15,12,7,5,2,1,1],
+      },
+      {
+        'name': 'Commercial Impacts',
+        'catNames': ['No Ops','Unavbl as Alt','NPA Unavbl as Alt','Alt Req\'d','Low AAR','No Impact'],
+        'classNames': ['vlifr','ifr1','ifr2','mvfr1','vfr1','vfr3'],
+        'cigMins': [-1,200,600,800,2000,6500],
+        'visMins': [-1,0.5,2.0,2.0,3.0,6.0],
+		'scoring': [50,25,20,10,5,1],
+      },
+      {
+        'name': 'Simple',
+        'catNames': ['IFR & Below','MVFR','VFR'],
+        'classNames': ['ifr1','mvfr1','vfr1'],
+        'cigMins': [-1,1000,3100],
+        'visMins': [-1,3.0,6.0],
+		'scoring': [1,1,1],
+      },
+];
+var ruleOptionSet = d3.select('#ruleChoices').selectAll('option')
+	.data(rulesets.map(x => x.name));
+ruleOptionSet.enter()
+	.append('option')
+	.text(d => d);
+d3.select('#ruleChoices').on('change', function(d) {
+		draw();
+	});
+ruleOptionSet.exit().remove();
+
+// https://bl.ocks.org/d3noob/0e276dc70bb9184727ee47d6dd06e915
+// set the dimensions and margins of the graph
+var tafGroupMargin = 6, metarMargin = 1,
+    margin = {top: 0, right: tafGroupMargin, bottom: 0, left: 80},
+    width = 1200 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom,
+	metarThingHeight = 15;
+// append the svg object to the body of the page
+// appends a 'group' element to 'svg'
+// moves the 'group' element to the top left margin
+var svg = d3.select("#chart")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+svg
+	.on('mouseover',function(evt) { d3.select('#readout').attr("hidden",null); })
+	.on('mouseout',function(evt) { d3.select('#readout').attr("hidden",true); });
+var svgTimeAxis = svg.append("g")
+	.attr("class", "xAxis")
+	.attr("transform",
+		  "translate(" + (margin.left + tafGroupMargin / 2.) + "," + height + ")");
+var svgBandG = svg.append("g");
+var svgTafG = svg.append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+var svgMetarG = svg.append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+var tafObjArray, metarObjArray;
+
+function load() {
+	var startTimeObj = moment().subtract(42,'hours');
+	var endTimeObj = moment().subtract(18,'hours');
+	var mySid = d3.select("input#sid").node().value.substr(0,4).toUpperCase();
+	
+	var tafSearchStartTime = startTimeObj.toISOString();
+	var tafSearchEndTime = endTimeObj.toISOString();
+	
+	var addsTafUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=csv&startTime=" + tafSearchStartTime + "&endTime=" + tafSearchEndTime + "&timeType=issue&stationString=" + mySid;
+
+	console.log(mySid,tafSearchStartTime,tafSearchEndTime,addsTafUrl);
+	
+	d3.select('button#go').text('Loading...');
+	document.getElementById("go").disabled = true;
+	d3.select('#options').attr("hidden",true);
+	
+	fetch(addsTafUrl, { headers: { 'Origin': 'http://weather.gov' } })
+		.then(function(response) {
+			//console.log(response.url);
+			return response.text();
+		})
+		.then(function(b) {
+			// drop everything up to and including the line that includes "x results"
+			var lines = b.split('\n');
+			for (var i = 0; i < 5; i++) lines.shift();
+			// So now lines[0] is the header, but AWC did something dumb and made each row contain arrays of elements corresponding to lines in the TAF.
+			// There is no delineation when the arrays begin or end; the column names just repeat. Dumb!
+			// So split apart the the header and each time we encounter the field name "fcst_time_from", start appending an index to the field names,
+			// and continue until we encounter "turbulence_intensity". The rest of the fields are not used in a TAF (icing, temps, etc.)
+			// The result will be field names like "fcst_time_from0", etc.
+			// But you know what's REALLY dumb?! The sky cover is an array within the array! Those field names repeat too!
+			// Begin by shifting off the old header.
+			var oldHeader = lines.shift();
+			var headerFields = oldHeader.split(',');
+			var lineArrayIndex = 0, inLineArray = false, skyArrayIndex = 0, inSkyArray = false, newHeader = '';
+			for (var i = 0; i < headerFields.length; i++) {
+				if (headerFields[i] == 'fcst_time_from') inLineArray = true;
+				else if (headerFields[i] == 'turbulence_intensity') { inLineArray = false; lineArrayIndex++; skyArrayIndex = 0 }
+				if (headerFields[i] == 'sky_cover') { inSkyArray = true; }
+				if (inSkyArray) newHeader += headerFields[i] + lineArrayIndex + '_' + skyArrayIndex + ',';
+				else if (inLineArray) newHeader += headerFields[i] + lineArrayIndex + ',';
+				else newHeader += headerFields[i] + ',';
+				if (headerFields[i] == 'cloud_type') { inSkyArray = false; skyArrayIndex++; }
+			}
+			lines.unshift(newHeader);
+			var csv = lines.join('\n');
+			// Now use a custom row conversion function to assemble the indexed fields into arrays in the resulting JS object.
+			tafObjArray = d3.csvParse(csv, function(data,lineIndex,columnNames) {
+				var thisRowObj = {};
+				for (var i = 0; i < columnNames.length; i++) {
+					var m, n;
+					var dataValue = data[columnNames[i]];
+					if (m = columnNames[i].match(/(\D+)([\d_]+)/)) { // index at end of column name, column in output object should be array
+						var actualColumnName = m[1]; // name without the index
+						if (! thisRowObj.hasOwnProperty(actualColumnName)) thisRowObj[actualColumnName] = []; // initialize empty array on first encounter
+						if (n = m[2].match(/\d+_(\d+)/)) { // has sub-array index, so is sky; create sub-array and push onto that
+							if (n[1] == 0) thisRowObj[actualColumnName].push([dataValue]);
+							else thisRowObj[actualColumnName][thisRowObj[actualColumnName].length - 1].push(dataValue);
+						} else { // not sky, push directly onto column array
+							thisRowObj[actualColumnName].push(dataValue);
+						}
+					} else {
+						thisRowObj[columnNames[i]] = dataValue;
+					}
+				}
+				return thisRowObj;
+			});
+			return tafObjArray;
+		})
+		.then(function(t) {
+			// check valid_time of each TAF to figure out the earliest and latest times covered by the TAFs in the fetched set
+			var metarPeriodStart = moment('2200-12-31'), metarPeriodEnd = moment('1900-01-01');
+			tafObjArray.map(function(taf) {
+				var startOfTaf = moment(taf.valid_time[0]), endOfTaf = moment(taf.valid_time[1]);
+				if (startOfTaf < metarPeriodStart) metarPeriodStart = startOfTaf;
+				if (endOfTaf > metarPeriodEnd) metarPeriodEnd = endOfTaf;
+			});
+			var addsMetarUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=csv&startTime=" + metarPeriodStart.toISOString() + "&endTime=" + metarPeriodEnd.toISOString() + "&stationString=" + mySid;
+			console.log(addsMetarUrl);
+			return fetch(addsMetarUrl, { headers: { 'Origin': 'http://weather.gov' } })
+		})
+		.then(function(response) {
+				//console.log(response.url);
+				return response.text();
+		})
+		.then(function(b) {
+			// analogous to TAF retrieval--see above for commentary
+			var lines = b.split('\n');
+			for (var i = 0; i < 5; i++) lines.shift();
+			var oldHeader = lines.shift();
+			var headerFields = oldHeader.split(',');
+			// only one layer of array nesting this time at least...
+			var skyArrayIndex = 0, inSkyArray = false, newHeader = '';
+			for (var i = 0; i < headerFields.length; i++) {
+				if (headerFields[i] == 'sky_cover') { inSkyArray = true; }
+				if (inSkyArray) newHeader += headerFields[i] + skyArrayIndex + ',';
+				else newHeader += headerFields[i] + ',';
+				if (headerFields[i] == 'cloud_base_ft_agl') { inSkyArray = false; skyArrayIndex++; }
+			}
+			lines.unshift(newHeader);
+			var csv = lines.join('\n');
+			metarObjArray = d3.csvParse(csv, function(data,lineIndex,columnNames) {
+				var thisRowObj = {};
+				for (var i = 0; i < columnNames.length; i++) {
+					var m, n;
+					var dataValue = data[columnNames[i]];
+					if (m = columnNames[i].match(/(\D+)(\d+)/)) { // index at end of column name, column in output object should be array
+						var actualColumnName = m[1]; // name without the index
+						if (! thisRowObj.hasOwnProperty(actualColumnName)) thisRowObj[actualColumnName] = []; // initialize empty array on first encounter
+						thisRowObj[actualColumnName].push(dataValue);
+					} else {
+						thisRowObj[columnNames[i]] = dataValue;
+					}
+				}
+				return thisRowObj;
+			});
+			// make sure metars are sorted from earliest to latest
+			metarObjArray.sort(function(a,b) {
+				if (moment(a.observation_time).isSame(b.observation_time)) return 0;
+				return (moment(a.observation_time).isBefore(b.observation_time)) ? -1 : 1;
+			});
+			// add time of next ob to each array element, so they can be drawn like TAF groups
+			for (var i = 0; i <= metarObjArray.length-2; i++)
+				metarObjArray[i]['next_observation_time'] = metarObjArray[i+1].observation_time;
+			// add aliases to rename elements like in TAF groups, so we can apply the same functions to both
+			metarObjArray = metarObjArray.map(function(e) {
+				e.cloud_base = e.cloud_base_ft_agl;
+				e.visibility = e.visibility_statute_mi;
+				e.start = e.observation_time;
+				if (e.hasOwnProperty('next_observation_time'))
+					e.end = e.next_observation_time;
+				else
+					e.end = null;
+				return e;
+			});
+			return metarObjArray;
+		})
+		.then(function(o) {
+			// now have tafObj and metarObj
+			// 	each element of tafObjArray is an object:
+			//		issue[0] is issuance time (all times are ISO 8601 strings)
+			//		raw[0] is the original TAF
+			//		TAF period is valid_time[0] to valid_time[1]
+			//		given fcst group i:
+			//			valid fcst_time_from[i] to fcst_time_to[i]
+			//			sky_cover[i] is array of FEW, SCT, etc. for each cloud layer
+			//			cloud_base_ft_agl[i] is in ft, decoded
+			//			visibility_statute_mi[i] is in SM, decoded (unlimited = 6.21)
+			d3.selectAll('#issuanceChoices option').remove();
+			// Populate time selector to represent each TAF
+			var tafTimes = d3.select('#issuanceChoices').selectAll('option')
+				.data(tafObjArray.map(x => x.issue[0]));
+			tafTimes.exit().remove();
+			tafTimes.enter()
+				.append('option')
+				.text(d => moment(d).utc().format('ddd MMM D HHmm z'))
+				.attr('value',d => d);
+			d3.select('#issuanceChoices').on('change', function(d) {
+					draw();
+					//console.log(this.value);
+				});
+
+			if (tafObjArray.length > 0) {
+				// We can go ahead and draw the graph with the default options
+				draw();
+			} else {
+				d3.selectAll('.tafGroup').remove();
+				d3.select('#tafBulletin').text('No TAF available for that site');
+			}
+			
+			d3.select('button#go').text('Go');
+			document.getElementById("go").disabled = false;
+			d3.select('#options').attr("hidden",null);
+		});
+
+}
+
+function categorize(wx,rules) {
+	var catCig = rules.classNames.length - 1,
+	    catVis = rules.classNames.length - 1; // default to VFR if something lower not found
+	for (var j = 0; j < wx.sky_cover.length; j++) {
+		if (wx.sky_cover[j].match(/BKN|OVC|VV/)) {
+			for (var i = 1; i < rules.cigMins.length; i++) {
+				if (wx.cloud_base[j] < rules.cigMins[i]) {
+					catCig = i - 1;
+					j = wx.sky_cover.length;
+					break;
+				}
+			}
+		}
+	}
+	if (wx.visibility.length > 0) {
+		for (var i = 1; i < rules.visMins.length; i++) {
+
+			if (wx.visibility < rules.visMins[i]) {
+				catVis = i - 1;
+				break;
+			}
+		}
+	}
+	return Math.min(catCig,catVis); // index of arrays in ruleset that represents category
+}
+
+function score(wx,rules,tellIfSplit=false) {
+	// Don't contribute conditionals to the TAF score; their contribution is only to move points between the FAR/POD/CSI bins
+	if (wx.hasOwnProperty('group_type') && wx.group_type.match(/TEMPO|PROB/)) return 0;
+	var catIndex = categorize(wx,rules);
+	var startTime = wx.start, endTime = wx.end;
+	// if the ob and group only partly overlap, then elements will have been added to represent the time they do overlap
+	if (wx.hasOwnProperty('score_end')) endTime = wx.score_end;
+	if (wx.hasOwnProperty('score_start')) startTime = wx.score_start;
+	if (endTime)
+		var lengthMinutes = moment(endTime).diff(startTime, 'minutes');
+	else
+		return 0; // TODO -1 to ignore this score in tallying?
+	if (tellIfSplit) // one METAR may have different scores for different groups
+		return [rules.scoring[catIndex] * lengthMinutes, wx.hasOwnProperty('score_start')|wx.hasOwnProperty('score_end')];
+	else
+		return rules.scoring[catIndex] * lengthMinutes;
+}
+
+function draw() {
+	var issuanceTimeStr = d3.select("#issuanceChoices").node().value;
+	var rulesetName = d3.select("#ruleChoices").node().value;
+	var taf = tafObjArray.filter(i => i.issue[0] == issuanceTimeStr)[0];
+	
+	// set the x range to TAF valid period
+	var x = d3.scaleTime()
+		.domain([new Date(taf.valid_time[0]), new Date(taf.valid_time[1])])
+		.range([0, width]);
+		
+	// blank out time axis
+	d3.select("g.xAxis").html('');
+	var timeAxis = d3.axisTop(x)
+		.ticks(d3.timeHour.every(3))
+		.tickPadding(1)
+		.tickSize(height)
+		.tickFormat(function(d) { return d3.utcFormat('%d/%Hz')(d); });
+	d3.selectAll("g.xAxis")
+		.call(timeAxis)
+		.selectAll("text")
+		.attr("y", -2)
+		.attr("x", 3)
+		//.style("text-anchor","start")
+		.attr('class','time-ticks')
+	d3.selectAll('#chart .domain').remove();
+	d3.selectAll('#chart .tick').attr('class','dashed-ticks');
+
+	var rules = rulesets.filter(i => i.name == rulesetName)[0];
+	// set y range based on rules
+	var y = d3.scaleLinear()
+		.domain([-1,rules.classNames.length-1])
+		.range([height, 0]);
+	var bandHeight = height / rules.classNames.length;
+	// draw the bands
+	// can't update since the classnames are not unique to each ruleset...just wipe 'em out and redraw
+	svgBandG.selectAll('.catBands').remove();
+	svgBandG.selectAll('.catText').remove();
+	svgBandG.selectAll('.catTextSmall').remove();
+	var ruleCatBands = svgBandG.selectAll('rect').data(rules.classNames);
+	var ruleCatNames = svgBandG.selectAll('text').data(rules.catNames);
+	ruleCatBands.enter().append('rect')
+		.attr('class', function(d,i) { return "catBands " + d; })
+		.merge(ruleCatBands)
+			.attr('width', width + margin.left + margin.right)
+			.attr('height', bandHeight)
+			.attr('fill-opacity', 0.3)
+			.attr('x',0)
+			.attr('y', function(d,i) { return (rules.classNames.length-1-i) * bandHeight; });
+	var nameSel = ruleCatNames.enter();
+	nameSel.append('text')
+		.attr('class', 'catText')
+		.merge(ruleCatNames)
+			.attr('x',0)
+			.attr('y', function(d,i) { return ((rules.catNames.length-i) * bandHeight) - (bandHeight / 2); })
+			.attr('textLength',margin.left)
+			.attr('lengthAdjust','spacingAndGlyphs')
+			.attr('dy',3) // shift baseline down
+			.text(function(d,i) { return d; });
+	nameSel.append('text')
+		.attr('class', 'catTextSmall')
+		.merge(ruleCatNames)
+			.attr('x',0)
+			.attr('y', function(d,i) { return ((rules.catNames.length-i) * bandHeight) - (bandHeight / 2); })
+			.attr('dy',18) // shift baseline down
+			.text(function(d,i) { return rules.scoring[i] + ' pt/min'; });
+	var groupData = [];
+	for (var i = 0; i < taf.fcst_time_from.length; i++) {
+		if (taf.fcst_time_from[i].length > 0)
+			groupData.push({
+				'start': taf.fcst_time_from[i],
+				'end': taf.fcst_time_to[i],
+				'group_type': taf.change_indicator[i], // blank, FM, PROB, TEMPO ...
+				'sky_cover': taf.sky_cover[i],
+				'cloud_base': taf.cloud_base_ft_agl[i],
+				'visibility': taf.visibility_statute_mi[i],
+			});
+	}
+	console.log(groupData, rules);
+	var tafBulletin = taf.raw[0].replace(/(FM\d+)/g,'\n     $&').replace(/(TEMPO|BECMG)/g,'\n      $&');
+	d3.select('#tafBulletin').text(tafBulletin);
+	
+	// calculate the total score
+	
+	metarObjArray.forEach(function(ob) {
+		if (! ob.end) {
+			// fix end time of last ob
+			//console.log('ob had no end time: ', ob);
+			ob.end = groupData[groupData.length-1].end; 
+		}
+	});
+	var scoreFalse = 0, scoreHit = 0, scoreMiss = 0, scoreTaf = 0;
+	groupData.forEach(function(group,indexOfGroup) {
+		var verifyingObs = metarObjArray.filter(function(m) {
+			if ((m.end > group.start && m.end <= group.end) ||
+				(m.start >= group.start && m.start < group.end))
+				return true;
+			else return false;
+		});
+		if (verifyingObs.length > 0) {
+			// ignore parts of group not covered by obs
+			if (moment(verifyingObs[0].start).isAfter(group.start))
+				group.score_start = verifyingObs[0].start;
+			if (moment(verifyingObs[verifyingObs.length-1].end).isBefore(group.end))
+				group.score_end = verifyingObs[verifyingObs.length-1].end;
+			var groupScore = score(group,rules);
+			var groupCat = categorize(group,rules);
+			var prevGroupCat = groupCat, prevGroupScore = groupScore;
+			if (group.group_type.match(/TEMPO|PROB/)) {
+				// Hack to make ob verify conditional groups:
+				// Previous group should be the matching prevailing group,
+				// so verify the conditional group with either category.
+				prevGroupCat = categorize(groupData[indexOfGroup-1],rules);
+				prevGroupScore = score(groupData[indexOfGroup-1],rules);
+			}
+			verifyingObs.forEach(function(ob) {
+				// ignore portions of obs periods outside TAF period
+				// ...have to "reset" any time adjustments made to obs for a different group
+				if (ob.start < group.start) ob.score_start = group.start;
+					else if (ob.hasOwnProperty('score_start')) delete ob.score_start; 
+				if (ob.end > group.end) ob.score_end = group.end;
+					else if (ob.hasOwnProperty('score_end')) delete ob.score_end;
+				var obCat = categorize(ob,rules);
+				var obScore = score(ob,rules);
+				if (obCat > groupCat || obCat > prevGroupCat) {
+					// score ob period based on cat of false-alarmed group
+					// ...and incorporate prevGroupCat by using it if it's worse
+					if (group.group_type.match(/TEMPO|PROB/) && prevGroupScore > score(group,rules)) {
+						var farSky = groupData[indexOfGroup-1].sky_cover;
+						var farCloud = groupData[indexOfGroup-1].cloud_base;
+						var farVsby = groupData[indexOfGroup-1].visibility;
+					} else {
+						var farSky = group.sky_cover;
+						var farCloud = group.cloud_base;
+						var farVsby = group.visibility;
+					}
+					var obWithfarGroupCat = {
+						'start': ob.hasOwnProperty('score_start') ? ob.score_start : ob.start,
+						'end': ob.hasOwnProperty('score_end') ? ob.score_end : ob.end,
+						'sky_cover': farSky,
+						'cloud_base': farCloud,
+						'visibility': farVsby,	
+					};
+					scoreFalse += score(obWithfarGroupCat,rules);
+				}
+				else if (obCat < groupCat || obCat < prevGroupCat) scoreMiss += obScore;
+				else scoreHit += obScore;
+			});
+			scoreTaf += groupScore;
+		}
+	});
+	d3.select('#pointReadout').text('False=' + scoreFalse + ' Hit=' + scoreHit + ' Miss=' + scoreMiss + ' TotalObs=' + (scoreFalse+scoreHit+scoreMiss) + ' TotalTAF=' + scoreTaf);
+	if (scoreHit + scoreMiss > 0)
+		var pod = scoreHit / (scoreHit + scoreMiss);
+	else
+		var pod = 0;
+	if (scoreHit + scoreFalse > 0)
+		var far = scoreFalse / (scoreHit + scoreFalse);
+	else
+		var far = 0;
+	if (scoreHit + scoreFalse + scoreMiss > 0)
+		var csi = scoreHit / (scoreHit + scoreFalse + scoreMiss);
+	else
+		var csi = 0;
+	d3.select('#scoreIndexReadout').text('POD=' + d3.format('.1%')(pod) + ' FAR=' + d3.format('.1%')(far) + ' CSI=' + d3.format('.1%')(csi));
+	
+	// ok, now draw the graph
+	
+	// DATA JOIN
+	var tafGroupRects = svgTafG.selectAll('rect').data(groupData);
+	// UPDATE
+	// change attributes only - gotta do something here
+	tafGroupRects
+		.attr('updated','yes');
+	// ENTER or ENTER+UPDATE
+	tafGroupRects.enter().append("rect")
+		.attr('class', 'tafGroup')
+		.on('mouseover', function(evt) {
+			d3.select('td#readoutTime').text(d3.select(this).attr('time-range'));
+			d3.select('td#score').text(d3.select(this).attr('score-value'));
+			d3.select('td#readoutWx').text(d3.select(this).attr('flight-conds'));
+		})
+		.on('mouseout', function(evt) {
+			d3.select('td#readoutTime').text('');
+			d3.select('td#score').text('');
+			d3.select('td#readoutWx').text('');
+		})
+		.merge(tafGroupRects)
+			.attr("width", function(group) {
+				if (group.group_type.match(/PROB|TEMPO/))
+					var myMargin = tafGroupMargin * 3;
+				else 
+					var myMargin = tafGroupMargin;
+				return x(moment(group.end).toDate()) - x(moment(group.start).toDate()) - myMargin;
+			})
+			.attr("height", function(group) {
+				if (group.group_type.match(/PROB|TEMPO/)) return (bandHeight / 2.) - tafGroupMargin;
+				else return bandHeight - tafGroupMargin;
+			})
+			.attr('class', function(group) {
+				var patternName = '';
+				if (group.group_type == 'TEMPO')
+					patternName = 'tempo ';
+				else if (group.group_type == 'PROB')
+					patternName = 'prob ';
+				return patternName + "tafGroup " + rules.classNames[categorize(group,rules)];
+			})
+			.attr('rx',5)
+			.attr("x", function(group,i) {
+				if (group.group_type.match(/PROB|TEMPO/))
+					var myMargin = tafGroupMargin * 2;
+				else 
+					var myMargin = tafGroupMargin;
+				return x(moment(group.start).toDate()) + myMargin;
+			})
+			.attr("y", function(group,i) {
+				if (group.group_type == 'PROB') // bottom half
+					return y(categorize(group,rules)) + (bandHeight / 2.);
+				if (group.group_type == 'TEMPO') // top half, inside FM
+					return y(categorize(group,rules)) + tafGroupMargin;
+				else return y(categorize(group,rules)) + (tafGroupMargin / 2.); })
+			.attr("flight-conds", function(group,i) {
+				var readoutText = '';
+				group.sky_cover.map(function(e, i) {
+					if (e.length > 0) {
+						if (readoutText.length > 0) readoutText += ', ';
+						if (e.match(/SKC/)) readoutText += 'SKC';
+						else readoutText += e + ' ' + group.cloud_base[i] + ' ft';
+					}
+				});
+				if (group.visibility.length > 0) {
+					if (readoutText.length > 0) readoutText += ', ';
+					if (group.visibility > 6) readoutText += 'unlimited vsby';
+					else readoutText += group.visibility + ' mi';
+				}
+				if (group.group_type != 'FM') readoutText = group.group_type + ' ' + readoutText;
+				return readoutText;
+			})
+			.attr("time-range", function(group,i) {
+				return moment(group.start).utc().format('ddd HHmm') + 'z to ' + moment(group.end).utc().format('ddd HHmm') + 'z';
+			})
+			.attr("score-value", function(group) {
+				return score(group,rules);
+			});
+	// EXIT
+	// drop old elements
+	tafGroupRects.exit().remove();
+	
+	// now draw the METAR representation
+	//metarObjArray[i]['next_observation_time']
+		// DATA JOIN
+	var metarRects = svgMetarG.selectAll('rect').data(metarObjArray);
+	// UPDATE
+	// change attributes only - gotta do something here
+	metarRects
+		.attr('updated','yes');
+	// ENTER or ENTER+UPDATE
+	metarRects.enter().append("rect")
+		.attr('class', 'metar')
+		.on('mouseover', function(evt) {
+			d3.select('td#readoutTime').text(d3.select(this).attr('time-range'));
+			d3.select('td#score').text(d3.select(this).attr('score-value'));
+			d3.select('td#readoutWx').text(d3.select(this).attr('raw-metar'));
+		})
+		.on('mouseout', function(evt) {
+			d3.select('td#readoutTime').text('');
+			d3.select('td#score').text('');
+			d3.select('td#readoutWx').text('');
+		})
+		.merge(metarRects)
+			// don't draw the metar thing if it ended before taf began
+			.attr("visibility", function(m) {
+				if (m.hasOwnProperty('next_observation_time') &&
+				    moment(m.next_observation_time).isBefore(groupData[0].start))
+					return "hidden";
+				else return null;
+			})
+			.attr("width", function(m) {
+				if (m.hasOwnProperty('next_observation_time'))
+					return x(moment(m.next_observation_time).toDate()) - x(moment(m.observation_time).toDate()) - metarMargin;
+				else
+					return width - x(moment(m.observation_time).toDate()) - metarMargin;
+			})
+			.attr("height", metarThingHeight)
+			.attr('class', 'metarThing')
+			.attr('rx',3)
+			.attr("x", function(m,i) {
+				return x(moment(m.observation_time).toDate()) + metarMargin;
+			})
+			.attr("y", function(m,i) {
+				return y(categorize(m,rules)) + (bandHeight / 2.) - (metarThingHeight / 2.);
+			})
+			.attr("raw-metar", function(m,i) {
+				return m.raw_text;
+			})
+			.attr("time-range", function(m,i) {
+				if (m.hasOwnProperty('next_observation_time'))
+					return moment(m.observation_time).utc().format('ddd HHmm') + 'z to ' + moment(m.next_observation_time).utc().format('ddd HHmm') + 'z';
+				else
+					return 'After ' + moment(m.observation_time).utc().format('ddd HHmm') + 'z';
+			})
+			.attr("score-value", function(m) {
+				var s = score(m,rules,true);
+				if (s[1] == true) return 'Ambiguous';
+				else return s[0];
+			});
+	// EXIT
+	// drop old elements
+	metarRects.exit().remove();
+}
+
+d3.select('button#go').on('click', function(d,i,nodes) {
+	d3.select('#logo').remove();
+	logoShown = false;
+	load();
+});
+</script>
+<svg>
+<pattern id="hatch" width="4" height="4" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+  <line x1="0" y1="0" x2="0" y2="4" style="stroke:black; stroke-width:1;fill:black;" />
+</pattern>
+</svg>
+<svg>
+   <pattern id="checkerboard" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse" >
+    <rect class="checker" x="0" width="4" height="4" y="0"/>
+    <rect class="checker" x="4" width="4" height="4" y="4"/>
+  </pattern>
+</svg>
+</html>
