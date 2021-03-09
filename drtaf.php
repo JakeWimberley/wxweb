@@ -13,7 +13,7 @@
   $disclaimer = "TAF and METAR data courtesy <a href=\"http://aviationweather.gov/adds/\">Aviation Weather Center</a>, <a href=\"http://weather.gov\">National Weather Service</a>.<br><b>WARNING! DO NOT</b> use these data for flight planning. The data presented here are for informational and educational use only. Reliability cannot be guaranteed; use at your own risk.";
   $self = 'drtaf.php'; //TODO shouldn't need this
   $startTimeStr = '37 hours ago'; // anything compatible with strftime()
-  $endTimeStr = '25 hours ago';   //
+  $endTimeStr = '12 hours ago';   //
   $rulesets = array(
       'std' => array(
         'name' => 'Flight Categories (Standard US)',
