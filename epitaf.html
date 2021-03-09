@@ -129,6 +129,7 @@ div#help {
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.js"></script>
 <script src="https://d3js.org/d3.v5.js"></script>
+<script src="cac.js"></script>
 <div id="help" onclick="javascript:document.getElementById('help').style.display = 'none';" hidden>
 EpiTAF generates graphs of TAFs and the observations from the forecast period. The X axis is time (early to late, left to right) and the Y axis is the categorized weather, using the chosen scheme.
 The default scheme is flight category. You can choose a different TAF issuance time, or change the categorization rule set, and the graph will regenerate.
@@ -214,7 +215,7 @@ var rulesets = [
         'name': 'Commercial Impacts',
         'catNames': ['No Ops','Unavbl as Alt','NPA Unavbl as Alt','Alt Req\'d','Low AAR','No Impact'],
         'classNames': ['vlifr','ifr1','ifr2','mvfr1','vfr1','vfr3'],
-        'cigMins': [-1,200,600,800,2000,6500],
+        'cigMins': [-1,200,600,800,2000,5000],
         'visMins': [-1,0.5,2.0,2.0,3.0,6.0],
 		'scoring': [50,25,20,10,5,1],
       },
@@ -226,6 +227,13 @@ var rulesets = [
         'visMins': [-1,3.0,6.0],
 		'scoring': [1,1,1],
       },
+	  {
+		'name': 'CAC (as of ' + cacDate + ')',
+		'catNames': ['Below Mins','Cat A','Cat B','Cat C','Cat D'],
+		'classNames': ['vlifr','ifr1','ifr2','mvfr1','vfr1'],
+		'scoring': [50,25,12,7,1],
+		// NOTE when CAC is selected the cac.js data will be loaded to populate cigMins and visMins for the specific site.
+	  },
 ];
 var ruleOptionSet = d3.select('#ruleChoices').selectAll('option')
 	.data(rulesets.map(x => x.name));
@@ -275,7 +283,8 @@ function load() {
 	var tafSearchStartTime = startTimeObj.toISOString();
 	var tafSearchEndTime = endTimeObj.toISOString();
 	
-	var addsTafUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=csv&startTime=" + tafSearchStartTime + "&endTime=" + tafSearchEndTime + "&timeType=issue&stationString=" + mySid;
+	//var addsTafUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=csv&startTime=" + tafSearchStartTime + "&endTime=" + tafSearchEndTime + "&timeType=issue&stationString=" + mySid;
+	var addsTafUrl = "cors.php?url=https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=tafs&requestType=retrieve&format=csv&startTime=" + tafSearchStartTime + "&endTime=" + tafSearchEndTime + "&timeType=issue&stationString=" + mySid;
 
 	console.log(mySid,tafSearchStartTime,tafSearchEndTime,addsTafUrl);
 	
@@ -344,7 +353,8 @@ function load() {
 				if (startOfTaf < metarPeriodStart) metarPeriodStart = startOfTaf;
 				if (endOfTaf > metarPeriodEnd) metarPeriodEnd = endOfTaf;
 			});
-			var addsMetarUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=csv&startTime=" + metarPeriodStart.toISOString() + "&endTime=" + metarPeriodEnd.toISOString() + "&stationString=" + mySid;
+			//var addsMetarUrl = "https://cors-anywhere.herokuapp.com/https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=csv&startTime=" + metarPeriodStart.toISOString() + "&endTime=" + metarPeriodEnd.toISOString() + "&stationString=" + mySid;
+			var addsMetarUrl = "cors.php?url=https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=csv&startTime=" + metarPeriodStart.toISOString() + "&endTime=" + metarPeriodEnd.toISOString() + "&stationString=" + mySid;
 			console.log(addsMetarUrl);
 			return fetch(addsMetarUrl, { headers: { 'Origin': 'http://weather.gov' } })
 		})
@@ -434,6 +444,7 @@ function load() {
 				draw();
 			} else {
 				d3.selectAll('.tafGroup').remove();
+				d3.selectAll('.metarThing').remove();
 				d3.select('#tafBulletin').text('No TAF available for that site');
 			}
 			
@@ -492,6 +503,7 @@ function draw() {
 	var issuanceTimeStr = d3.select("#issuanceChoices").node().value;
 	var rulesetName = d3.select("#ruleChoices").node().value;
 	var taf = tafObjArray.filter(i => i.issue[0] == issuanceTimeStr)[0];
+	var tafSiteID = taf.station[0];
 	
 	// set the x range to TAF valid period
 	var x = d3.scaleTime()
@@ -516,6 +528,17 @@ function draw() {
 	d3.selectAll('#chart .tick').attr('class','dashed-ticks');
 
 	var rules = rulesets.filter(i => i.name == rulesetName)[0];
+	if (rules.name.match(/^CAC/)) {
+		if (cacThresholds.hasOwnProperty(tafSiteID)) {
+			rules.cigMins = cacThresholds[tafSiteID].cigMins;
+			rules.visMins = cacThresholds[tafSiteID].visMins;
+		} else {
+			d3.selectAll('.tafGroup').remove();
+			d3.selectAll('.metarThing').remove();
+			d3.select('#tafBulletin').text('No CAC info for that site. Choose another ruleset.');
+			return;
+		}
+	}
 	// set y range based on rules
 	var y = d3.scaleLinear()
 		.domain([-1,rules.classNames.length-1])
