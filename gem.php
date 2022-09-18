@@ -17,7 +17,7 @@
 ?>
 <html>
 <head>
-	<title>Canadian GEM ensemble viewer Deluxe</title>
+	<title>Canadian GEPS ensemble viewer Deluxe</title>
 	<style>
 p#heading {
 	font-size: 20px;
@@ -125,11 +125,11 @@ function ChangeRun(incr) {
 <body style="font-family: sans-serif; font-size: 13px;">
 <div id="help" onclick="javascript:document.getElementById('help').style.display = 'none';">
 	<p style="position: fixed; background-color: black; top: 10px; left: 110px; width: 400px;">Run times are determined based on time of page load. 12z is expected to be newest between 1700z-0459z<br>&#8595;&#8595;&#8595;</p>
-	<p style="position: fixed; background-color: black; top: 220px; left: 5%; width: 400px;">Ensemble mean<br><br>red and blue characters represent plotted features on &quot;thumbnails&quot; at right<br><br>QPF values are in mm on all plots<br>(25.4 mm is 1 inch)</p>
-	<p style="position: fixed; background-color: black; top: 70px; left: 55%; width: 400px;">Individual ensemble members<br><br>GEM GLOBAL is in AWIPS. 12z runs go to 144 h, 00z runs go to 240 h; if timestep is beyond those limits, global thumbnail is left blank.<br><br>These images can be scrolled separately from the rest of the page.</p>
+	<p style="position: fixed; background-color: black; top: 220px; left: 5%; width: 400px;">Ensemble mean<br><br>red and blue characters represent local minima/maxima on &quot;thumbnails&quot; at right<br>(0 is not plotted, 1-9, A=10, F=15)<br>QPF values are in mm on all plots<br>(25.4 mm is 1 inch)</p>
+	<p style="position: fixed; background-color: black; top: 70px; left: 55%; width: 500px;">Individual ensemble members out to hour 384<br><br>GEM GLOBAL is the deterministic GDPS, aka CMCnh.<br>12z GDPS runs go to hr 144, 00z runs go to hr 240; if timestep is beyond those limits, global thumbnail is left blank.<br><br>These images can be scrolled separately from the rest of the page.</p>
 	<p style="position: fixed; top: 80%; left: 40%; background-color: black;">Click anywhere to close Help</p>
 </div>
-	<p id="heading">Canadian GEM ensemble viewer</p>
+	<p id="heading">Canadian GEPS ensemble viewer</p>
 	<table>
 		<tr>
 			<td class="bannerFlag"><img style="height: 32px; width: 64px" src="https://upload.wikimedia.org/wikipedia/en/thumb/c/cf/Flag_of_Canada.svg/320px-Flag_of_Canada.svg.png"></td>
@@ -143,18 +143,18 @@ function ChangeRun(incr) {
 		</tr>
 	</table>
 	<label for="runSelect">Run: </label>
-	<select name="run" id="runSelect">
+	<select name="run" id="runSelect" onchange="javascript:LoadNew()">
 <?php
 	foreach ($runList as $coded => $human) echo "\t\t<option value=\"$coded\">$human</option>\n";
 ?>
 	</select>
 	<label for="productSelect">Product: </label>
-	<select name="product" id="productSelect">
+	<select name="product" id="productSelect" onchange="javascript:LoadNew()">
 		<option value="pnm" selected>MSLP</option>
 		<option value="pcp12">12-hour QPF</option>
 		<option value="gz">500mb height</option>
 	</select>
-	<button onclick="javascript:LoadNew()">Change run/product</button><br><br>
+	<br><br>
 	<button onclick="javascript:PreviousFrame()">&lt;&lt;</button>
 	<span id="projTime"></span>
 	<button onclick="javascript:NextFrame()">&gt;&gt;</button>
